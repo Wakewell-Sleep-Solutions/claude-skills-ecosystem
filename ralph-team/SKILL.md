@@ -9,11 +9,12 @@ Claude leads. Codex + Gemini work independently. Results converge. Topology adap
 
 ## Core Principles
 
-1. **Independent-then-merge** beats real-time debate (Mullen et al., 800+ teams)
-2. **Single-shot with accumulated context** beats multi-turn (39% performance drop in multi-turn, arXiv:2505.06120)
-3. **Diverse reasoning strategies** beat FOR/AGAINST framing (framing bias confirmed, Science Advances 2025)
-4. **3 rounds max** — most debate value is in rounds 1-3 (ICLR 2025)
-5. **Topology is policy, not identity** — all topologies share the same lifecycle
+1. **NEVER STOP. NEVER ASK.** Make your best judgment and keep working. The user will `/cancel-ralph` if needed.
+2. **Completion = project done**, not "convergence" or "no new findings." If there's more work to discover, discover it.
+3. **Every iteration: DO work + FIND next work.** Don't just check off a list — actively search for what else needs doing.
+4. **Independent-then-merge** beats real-time debate (Mullen et al., 800+ teams)
+5. **Single-shot with accumulated context** beats multi-turn (39% performance drop, arXiv:2505.06120)
+6. **Diverse reasoning strategies** beat FOR/AGAINST framing (framing bias, Science Advances 2025)
 
 ## Quick Start
 
@@ -28,25 +29,48 @@ Claude leads. Codex + Gemini work independently. Results converge. Topology adap
 5. Each iteration: select topology → dispatch agents → fix findings → update state
 6. When converged → output `<promise>TEAM COMPLETE</promise>` to exit
 
-## Autonomous Loop Behavior
+## Autonomous Loop Behavior — KEEP GOING
+
+**DEFAULT IS: KEEP WORKING.** You stop ONLY when the project is genuinely complete.
 
 When the ralph-loop plugin is active:
 - **You will NOT stop** between iterations — the Stop hook re-injects your task
-- **Do NOT ask the user questions** — make your best judgment and act
+- **NEVER ask the user questions** — make your best judgment and act. If unsure, pick the best option and note why.
+- **NEVER declare completion early** — if you can think of ONE more thing to improve, do it
 - **Each iteration sees previous work** in files, `.team/shared/`, and git history
-- **The loop prompt is the SAME every time** — use `.team/loop-state.md` to track progress
-- **Safety cap**: max iterations (default 8) prevents runaway loops
+- **Safety cap**: max iterations (default 8) — set higher for big projects
 - **Emergency stop**: User can run `/cancel-ralph` at any time
 
 ### Iteration Lifecycle (Autonomous)
 ```
-1. Read .team/loop-state.md → what's REMAINING?
-2. Auto-select topology based on REMAINING items
-3. Execute topology: dispatch Codex + Gemini, run Claude agents
-4. Collect results, fix findings, update loop-state.md
-5. Check convergence → if met, output <promise>TEAM COMPLETE</promise>
-6. If not converged → just finish your response (hook re-engages you)
+PHASE 1 — DO WORK (60% of iteration)
+  1. Read .team/loop-state.md → what's in REMAINING?
+  2. Pick the highest-impact item
+  3. Auto-select topology, dispatch agents, execute
+  4. Fix findings, write code, create content — whatever the task requires
+  5. Mark completed items as DONE
+
+PHASE 2 — DISCOVER NEXT WORK (40% of iteration)
+  6. Dispatch a discovery agent: "Given what we've done so far, what else needs doing?"
+  7. Review the project holistically — gaps, quality issues, missing pieces
+  8. Add new items to REMAINING in loop-state.md
+  9. If Codex/Gemini found issues, add those too
+
+PHASE 3 — CONTINUE OR COMPLETE
+  10. Is REMAINING empty AND discovery found nothing new? → COMPLETE
+  11. Otherwise → just finish your response (hook re-engages you)
 ```
+
+### The Discovery Agent (Phase 2)
+Every iteration, dispatch a Claude subagent with this prompt:
+```
+Review the project state. What has been done (DONE list) and what remains (REMAINING).
+Your job: find work that HASN'T been identified yet.
+Look for: missing features, quality gaps, untested paths, unfinished edges,
+documentation needs, integration issues, things that would make this BETTER.
+Output: a list of new items to add to REMAINING, or "NOTHING_NEW" if genuinely done.
+```
+This is what keeps the loop going — it actively searches for more work instead of looking for reasons to stop.
 
 ## Intent Anchor (`.team/brief.md`)
 
@@ -170,36 +194,52 @@ Save outputs to `.team/shared/codex-iteration-N.md` and `.team/shared/gemini-ite
 
 3. **Cap at 3 rounds** — most value extracted in rounds 1-3. After that, diminishing returns.
 
-## Convergence Detection
+## Completion Criteria (NOT Convergence)
+
+**The question is NOT "have we converged?" — it's "is the project DONE?"**
 
 ```
-New HIGH findings this iteration?
-├── YES → Reset counter to 0/3. Continue.
-└── NO → Increment counter.
-    ├── REMAINING identical to previous? → Counter += 2 (fixed-point).
-    ├── Counter < 3, budget remaining → Continue.
-    ├── Counter ≥ 2, past 50% iterations → COMPLETE.
-    └── Counter = 3/3 → COMPLETE (strict).
+Is REMAINING empty?
+├── NO → Keep working. Pick highest-impact item.
+└── YES → Did the discovery agent find new work?
+    ├── YES → Add to REMAINING. Keep working.
+    └── NO → Is the Intent Anchor's SUCCESS criteria met?
+        ├── NO → What's missing? Add to REMAINING. Keep working.
+        └── YES → Output <promise>TEAM COMPLETE</promise>
 ```
 
-**Multi-agent convergence signal:** When all agents' outputs share >80% semantic overlap on key claims across 2 consecutive rounds, declare convergence.
+**BIAS: KEEP GOING.** When in doubt, find more work. Only stop when:
+1. REMAINING is empty AND
+2. Discovery agent returned NOTHING_NEW AND
+3. SUCCESS criteria from Intent Anchor are genuinely met
+
+**NEVER stop because:**
+- ❌ You ran out of ideas (dispatch discovery agent)
+- ❌ You want to ask the user a question (make your best judgment)
+- ❌ "Good enough" (push for great)
+- ❌ Iterations feel repetitive (you're probably close — push through)
 
 ## Loop State Format
 
 ```
 ORIGINAL INTENT: [from brief.md]
 TOPOLOGY: [selected preset]
-DOMAIN: [adapter loaded]
-ITERATION: [N] / MAX: [3]
-FIXED THIS ITERATION: [changes]
-REMAINING: [open items]
-CONVERGENCE: [X]/3
+ITERATION: [N]
+
+## DONE (completed this session)
+- [item 1 — what was done]
+- [item 2 — what was done]
+
+## REMAINING (work still needed)
+- [highest impact item first]
+- [next item]
+
+## DISCOVERED THIS ITERATION (from discovery agent)
+- [new work found] or NOTHING_NEW
 
 ## DISPATCH PROOF
 CODEX: YES/FAILED — [file path]
 GEMINI: YES/FAILED — [file path]
-AGENTS_DISPATCHED: [count]
-EST_COST: [$]
 ```
 
 ## Failure Recovery
@@ -226,20 +266,23 @@ Do NOT prematurely handoff. Opus 4.6 has 1M context. When degradation IS observe
 
 ## Anti-Patterns
 
-- **Framing bias**: Never assign FOR/AGAINST — use diverse reasoning lenses
-- **Multi-turn trap**: Never do back-and-forth — single-shot with accumulated context
-- **Agent bloat**: More agents ≠ better. Synthesis burden grows quadratically
-- **Intent drift**: #1 failure mode. Every finding must trace to Intent Anchor
-- **Re-litigating truth**: Once multi-model consensus establishes a finding, PROTECT it
-- **Premature synthesis**: WAIT for ALL agents. No exceptions
+- **🚫 STOPPING EARLY**: The #1 failure. If you can think of one more thing to do, DO IT
+- **🚫 ASKING QUESTIONS**: Never. Make your best judgment. Note your reasoning. Keep going.
+- **🚫 "Good enough"**: Push for great. The discovery agent exists to find what you missed.
+- **🚫 Framing bias**: Never assign FOR/AGAINST — use diverse reasoning lenses
+- **🚫 Multi-turn trap**: Never do back-and-forth — single-shot with accumulated context
+- **🚫 Agent bloat**: More agents ≠ better. Synthesis burden grows quadratically
+- **🚫 Intent drift**: Every action must trace to Intent Anchor
+- **🚫 Premature synthesis**: WAIT for ALL agents. No exceptions
 
 ## Completion
 
-Output `<promise>TEAM COMPLETE</promise>` ONLY when:
-- Convergence reached per decision tree
-- All findings addressed
-- Dispatch proof files exist
-- Output serves Intent Anchor's SUCCESS criteria
+Output `<promise>TEAM COMPLETE</promise>` ONLY when ALL THREE are true:
+1. REMAINING list is empty
+2. Discovery agent returned NOTHING_NEW
+3. Intent Anchor's SUCCESS criteria are genuinely met
+
+**If ANY of those are false → keep working. Do not output the promise.**
 
 ## Learnings (Metaswarm Pattern)
 
