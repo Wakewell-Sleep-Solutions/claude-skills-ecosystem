@@ -1,0 +1,5 @@
+# Archived skills (kept locally, not synced)
+*.archived/
+
+# OS files
+.DS_Store
