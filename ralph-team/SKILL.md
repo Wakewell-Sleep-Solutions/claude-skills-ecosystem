@@ -1,6 +1,6 @@
 ---
 name: ralph-team
-description: "Autonomous multi-model team orchestration with flexible topologies. Claude (lead) + Codex + Gemini work independently, then converge. Supports 5 topologies: hub-spoke (default), socratic (research convergence), pipeline (builder-auditor coding), mesh (parallel workers), adversarial (decision-making). Use when user says 'ralph team', 'team', 'agents', 'swarm', 'codex in the loop', 'autonomous team', 'loop team', 'iterate until done', 'run autonomously', 'hands-off mode', 'auto-improve this', 'let the agents work on it', or any request for multi-model collaboration."
+description: "Multi-model autonomous orchestration: Claude + Codex + Gemini work independently then converge. 5 topologies: hub-spoke, socratic, pipeline (builder-auditor), mesh (parallel workers), adversarial (decisions). Also handles simple parallel agent dispatch and subagent-driven plan execution. ALWAYS use this skill (not agent-orchestration) for: 'ralph team', '/ralph-team', 'team', 'agents', 'dispatch agents', 'parallel agents', 'subagents', 'swarm', 'codex in the loop', 'autonomous team', 'loop team', 'iterate until done', 'run autonomously', 'hands-off mode', 'auto-improve this', 'let the agents work on it', 'execute this plan', 'run tasks in parallel', or any multi-agent or multi-model request."
 ---
 
 # Ralph Team: Multi-Model Orchestration
