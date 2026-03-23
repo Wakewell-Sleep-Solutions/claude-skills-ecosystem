@@ -69,19 +69,18 @@ if ! command -v infisical >/dev/null 2>&1; then
   brew install infisical/get-cli/infisical 2>/dev/null || true
 fi
 if command -v infisical >/dev/null 2>&1; then
-  if ! infisical user get >/dev/null 2>&1; then
-    echo ""
-    echo "Log in to Infisical (this gives access to secrets):"
-    echo "Paste your Infisical token from your admin or https://app.infisical.com"
-    echo "(or press Enter to open interactive login)"
-    read -p "Token: " INFISICAL_TOKEN
-    if [ -n "$INFISICAL_TOKEN" ]; then
-      infisical login --token="$INFISICAL_TOKEN" 2>/dev/null || infisical login
-    else
-      infisical login
-    fi
+  echo ""
+  echo "Paste the Infisical token you received from your admin"
+  echo "(stored securely in your Mac keychain, not in any file):"
+  read -p "Token: " INFISICAL_TOKEN
+  if [ -n "$INFISICAL_TOKEN" ]; then
+    echo "$INFISICAL_TOKEN" | infisical login --method=universal-auth 2>/dev/null \
+      || INFISICAL_TOKEN="$INFISICAL_TOKEN" infisical login 2>/dev/null \
+      || echo "⚠️  Token didn't work — ask your admin for a new one"
+    echo "✅ Infisical: authenticated"
+  else
+    echo "⏭️  Skipped — get your token from your admin and run: infisical login"
   fi
-  echo "✅ Infisical: authenticated"
 else
   echo "⚠️  Infisical install failed — run later: brew install infisical/get-cli/infisical"
 fi
