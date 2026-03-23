@@ -13,27 +13,34 @@ echo "  5D Smiles AI Command Center — Setup"
 echo "========================================="
 echo ""
 
-# --- Fix brew PATH (Apple Silicon Macs install to /opt/homebrew) ---
-if [ -f /opt/homebrew/bin/brew ]; then
-  eval "$(/opt/homebrew/bin/brew shellenv)"
-elif [ -f /usr/local/bin/brew ]; then
-  eval "$(/usr/local/bin/brew shellenv)"
+# --- 1. Homebrew ---
+# Check every possible location before trying to install
+BREW_BIN=""
+if command -v brew >/dev/null 2>&1; then
+  BREW_BIN="brew"
+elif [ -x /opt/homebrew/bin/brew ]; then
+  BREW_BIN="/opt/homebrew/bin/brew"
+  eval "$($BREW_BIN shellenv)"
+elif [ -x /usr/local/bin/brew ]; then
+  BREW_BIN="/usr/local/bin/brew"
+  eval "$($BREW_BIN shellenv)"
+elif [ -x "$HOME/.homebrew/bin/brew" ]; then
+  BREW_BIN="$HOME/.homebrew/bin/brew"
+  eval "$($BREW_BIN shellenv)"
 fi
 
-# --- 1. Homebrew ---
-if ! command -v brew >/dev/null 2>&1; then
+if [ -z "$BREW_BIN" ]; then
   echo "📥 Installing Homebrew (you may need to enter your password)..."
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-  # Load it immediately
-  if [ -f /opt/homebrew/bin/brew ]; then
+  if [ -x /opt/homebrew/bin/brew ]; then
     eval "$(/opt/homebrew/bin/brew shellenv)"
-  elif [ -f /usr/local/bin/brew ]; then
+    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile 2>/dev/null
+  elif [ -x /usr/local/bin/brew ]; then
     eval "$(/usr/local/bin/brew shellenv)"
   fi
-  # Make it permanent
-  echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile 2>/dev/null
+else
+  echo "✅ Homebrew: already installed"
 fi
-echo "✅ Homebrew: $(brew --version 2>/dev/null | head -1)"
 
 # --- 2. Core tools ---
 command -v git >/dev/null 2>&1 || brew install git
