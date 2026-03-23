@@ -18,7 +18,7 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 fi
 ```
 
-If in a worktree: **skip Step 1** → go to Step 2.
+If in a worktree: **skip Step 1 (sync)** → go to Step 1.5 (plugins always run).
 
 ## Step 1: Sync repos (requires gh CLI)
 
@@ -57,44 +57,39 @@ done
 
 If they provide a token, run: `infisical login --token="<TOKEN>"`
 
-**Install MCP plugins** (only if not already configured — check with `claude mcp list` first):
+## Step 1.5: Install plugins and skills (ALWAYS runs — even in worktrees)
+
+**MCP plugins** — check if configured, install if missing:
 ```bash
-# Core orchestration (always-on)
+# Check what's already installed
+claude mcp list 2>/dev/null || echo "Can't check MCP list"
+```
+
+Install only what's missing:
+```bash
+# Ruflo / Claude-Flow (core orchestration — always-on)
 claude mcp add claude-flow -s user -- npx -y @claude-flow/cli@latest mcp start 2>/dev/null || true
 
-# Library docs (free)
+# Context7 (free library docs)
 claude mcp add context7 -s user -- npx -y @upstash/context7-mcp@latest 2>/dev/null || true
 
-# GitHub (needs token)
+# GitHub (needs GITHUB_PERSONAL_ACCESS_TOKEN in env)
 if [ -n "$GITHUB_PERSONAL_ACCESS_TOKEN" ]; then
   claude mcp add github -s user -- npx -y @modelcontextprotocol/server-github 2>/dev/null || true
 fi
 ```
 
-ASK THE USER if they want to connect additional services. Show this list:
-> "Which services do you use? I can connect them:
-> - Slack (team messaging)
-> - Gmail (email)
-> - Notion (docs)
-> - Stripe (payments)
-> - HubSpot (CRM)
-> - Google Drive (files)
-> - Railway (deploys)
-> - Supabase (database)
-> Type the ones you want, or 'skip' to set up later."
+**On first session only** — ASK THE USER if they want to connect additional services:
+> "Which services do you use? I can connect them: Slack, Gmail, Notion, Stripe, HubSpot, Google Drive, Railway, Supabase. Type the ones you want, or 'skip'."
 
 For each one they choose, walk them through the OAuth connection or API key setup.
 
-**Install skills** — gstack and Q Stack:
+**Skills** — install gstack if missing:
 ```bash
-# gstack (Garry Tan's command system — the engine under Q Stack)
-claude install-skill garrytan/gstack 2>/dev/null || true
-
-# Verify skills are available
-ls ~/.claude/skills/gstack/SKILL.md 2>/dev/null && echo "gstack: OK" || echo "gstack: MISSING — run: claude install-skill garrytan/gstack"
+ls ~/.claude/skills/gstack/SKILL.md 2>/dev/null && echo "gstack: OK" || claude install-skill garrytan/gstack 2>/dev/null || true
 ```
 
-Q Stack (org wrapper) and all other skills come from the repo's `.claude/skills/` directory — they're available automatically once the repo is cloned.
+Q Stack and all org skills come from the repo's `.claude/skills/` directory — available automatically once cloned.
 
 ## Step 2: Read org context
 
