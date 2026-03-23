@@ -93,6 +93,14 @@ if command -v infisical >/dev/null 2>&1; then
       echo "  ⏭️  Skipped — get your token from your admin and run: infisical login"
     fi
   fi
+
+  # Verify secrets are accessible (count only — never show values)
+  SECRET_COUNT=$(infisical secrets --env=prod --path=/shared --silent 2>/dev/null | grep -c "│" || echo "0")
+  if [ "$SECRET_COUNT" -gt 1 ]; then
+    echo "  ✅ Infisical: $SECRET_COUNT secrets accessible in /shared"
+  else
+    echo "  ⚠️  Infisical: no secrets found in /shared — check workspace config or ask your admin"
+  fi
 fi
 
 # --- 6. Clone all org repos ---
