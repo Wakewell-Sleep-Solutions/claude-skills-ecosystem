@@ -42,46 +42,57 @@ else
   echo "✅ Homebrew: already installed"
 fi
 
-# --- 2. Core tools ---
-command -v git >/dev/null 2>&1 || brew install git
-command -v node >/dev/null 2>&1 || brew install node
-command -v gh >/dev/null 2>&1 || brew install gh
-command -v tmux >/dev/null 2>&1 || brew install tmux
-echo "✅ git, node, gh, tmux installed"
+# --- 2. Core tools (skip if already installed) ---
+for tool in git node gh tmux; do
+  if command -v "$tool" >/dev/null 2>&1; then
+    echo "  ⏭️  $tool (already installed)"
+  else
+    echo "  📥 Installing $tool..."
+    brew install "$tool"
+  fi
+done
 
 # --- 3. Claude Code ---
-if ! command -v claude >/dev/null 2>&1; then
-  echo "📥 Installing Claude Code..."
+if command -v claude >/dev/null 2>&1; then
+  echo "  ⏭️  claude (already installed — $(claude --version 2>/dev/null))"
+else
+  echo "  📥 Installing Claude Code..."
   npm install -g @anthropic-ai/claude-code
 fi
-echo "✅ Claude Code: $(claude --version 2>/dev/null || echo 'installed')"
 
 # --- 4. GitHub auth ---
-if ! gh auth status >/dev/null 2>&1; then
+if gh auth status >/dev/null 2>&1; then
+  echo "  ⏭️  GitHub (already logged in as $(gh api user -q .login 2>/dev/null))"
+else
   echo ""
   echo "Log in to GitHub (this gives access to the private repos):"
   gh auth login
 fi
-echo "✅ GitHub: logged in as $(gh api user -q .login 2>/dev/null || echo 'authenticated')"
 
 # --- 5. Infisical ---
 if ! command -v infisical >/dev/null 2>&1; then
+  echo "  📥 Installing Infisical..."
   brew install infisical/get-cli/infisical 2>/dev/null || true
-fi
-if command -v infisical >/dev/null 2>&1; then
-  echo ""
-  echo "Paste your one-time Infisical token (get this from your admin — it expires after one use):"
-  read -p "Token: " INFISICAL_TOKEN
-  if [ -n "$INFISICAL_TOKEN" ]; then
-    echo "$INFISICAL_TOKEN" | infisical login --method=universal-auth 2>/dev/null \
-      || INFISICAL_TOKEN="$INFISICAL_TOKEN" infisical login 2>/dev/null \
-      || echo "⚠️  Token didn't work — ask your admin for a new one"
-    echo "✅ Infisical: authenticated"
-  else
-    echo "⏭️  Skipped — get your token from your admin and run: infisical login"
-  fi
 else
-  echo "⚠️  Infisical install failed — run later: brew install infisical/get-cli/infisical"
+  echo "  ⏭️  infisical (already installed)"
+fi
+
+if command -v infisical >/dev/null 2>&1; then
+  if infisical user get >/dev/null 2>&1; then
+    echo "  ⏭️  Infisical (already authenticated)"
+  else
+    echo ""
+    echo "Paste your one-time Infisical token (get this from your admin — it expires after one use):"
+    read -p "Token: " INFISICAL_TOKEN
+    if [ -n "$INFISICAL_TOKEN" ]; then
+      echo "$INFISICAL_TOKEN" | infisical login --method=universal-auth 2>/dev/null \
+        || INFISICAL_TOKEN="$INFISICAL_TOKEN" infisical login 2>/dev/null \
+        || echo "⚠️  Token didn't work — ask your admin for a new one"
+      echo "  ✅ Infisical: authenticated"
+    else
+      echo "  ⏭️  Skipped — get your token from your admin and run: infisical login"
+    fi
+  fi
 fi
 
 # --- 6. Clone all org repos ---
