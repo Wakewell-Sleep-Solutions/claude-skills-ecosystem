@@ -70,8 +70,7 @@ if ! command -v infisical >/dev/null 2>&1; then
 fi
 if command -v infisical >/dev/null 2>&1; then
   echo ""
-  echo "Paste the Infisical token you received from your admin"
-  echo "(stored securely in your Mac keychain, not in any file):"
+  echo "Paste your one-time Infisical token (get this from your admin — it expires after one use):"
   read -p "Token: " INFISICAL_TOKEN
   if [ -n "$INFISICAL_TOKEN" ]; then
     echo "$INFISICAL_TOKEN" | infisical login --method=universal-auth 2>/dev/null \
