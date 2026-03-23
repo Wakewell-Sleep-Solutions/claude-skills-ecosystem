@@ -64,14 +64,26 @@ if ! gh auth status >/dev/null 2>&1; then
 fi
 echo "✅ GitHub: logged in as $(gh api user -q .login 2>/dev/null || echo 'authenticated')"
 
-# --- 5. Infisical (optional) ---
+# --- 5. Infisical ---
 if ! command -v infisical >/dev/null 2>&1; then
   brew install infisical/get-cli/infisical 2>/dev/null || true
 fi
 if command -v infisical >/dev/null 2>&1; then
-  echo "✅ Infisical installed (run 'infisical login' to authenticate)"
+  if ! infisical user get >/dev/null 2>&1; then
+    echo ""
+    echo "Log in to Infisical (this gives access to secrets):"
+    echo "Paste your Infisical token from your admin or https://app.infisical.com"
+    echo "(or press Enter to open interactive login)"
+    read -p "Token: " INFISICAL_TOKEN
+    if [ -n "$INFISICAL_TOKEN" ]; then
+      infisical login --token="$INFISICAL_TOKEN" 2>/dev/null || infisical login
+    else
+      infisical login
+    fi
+  fi
+  echo "✅ Infisical: authenticated"
 else
-  echo "⏭️  Infisical skipped — install later: brew install infisical/get-cli/infisical"
+  echo "⚠️  Infisical install failed — run later: brew install infisical/get-cli/infisical"
 fi
 
 # --- 6. Clone all org repos ---
