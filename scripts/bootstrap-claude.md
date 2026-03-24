@@ -40,19 +40,18 @@ echo "claude-mem:$([ -d ~/.claude/plugins/marketplaces/thedotmack ] && echo OK |
 echo "ralph-loop:$([ -d ~/.claude/plugins/marketplaces/claude-plugins-official ] && echo OK || echo MISSING)"
 ```
 
-If ANY are MISSING, install them via git clone (NOT via `claude install-skill` — that's interactive only):
+If ANY are MISSING, you are inside a Claude session so use the interactive install commands:
+
+- gstack missing → tell user: "I need to install gstack. Type: `/install-skill garrytan/gstack`"
+- claude-mem missing → tell user: "I need to install claude-mem. Type: `/install-plugin thedotmack/claude-mem`"
+- ralph-loop missing → tell user: "I need to install ralph-loop. Type: `/install-plugin claude-plugins-official/ralph-loop`"
+
+Wait for user to run each one. If they fail, fall back to git clone:
 ```bash
-# gstack + all org skills
-[ -d ~/.claude/skills/gstack ] || git clone https://github.com/Wakewell-Sleep-Solutions/claude-skills-ecosystem.git ~/.claude/skills 2>/dev/null
-
-# claude-mem
-[ -d ~/.claude/plugins/marketplaces/thedotmack ] || git clone https://github.com/thedotmack/claude-mem.git ~/.claude/plugins/marketplaces/thedotmack 2>/dev/null
-
-# ralph-loop
-[ -d ~/.claude/plugins/marketplaces/claude-plugins-official ] || git clone https://github.com/claude-plugins-official/ralph-loop.git ~/.claude/plugins/marketplaces/claude-plugins-official 2>/dev/null
+git clone https://github.com/Wakewell-Sleep-Solutions/claude-skills-ecosystem.git ~/.claude/skills 2>/dev/null
+git clone https://github.com/thedotmack/claude-mem.git ~/.claude/plugins/marketplaces/thedotmack 2>/dev/null
+git clone https://github.com/claude-plugins-official/ralph-loop.git ~/.claude/plugins/marketplaces/claude-plugins-official 2>/dev/null
 ```
-
-Tell the user what was installed. If clone fails, they need GitHub access — tell them to run the human bootstrap first.
 
 ## Step 3b: Verify Infisical secrets
 
