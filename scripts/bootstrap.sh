@@ -1,40 +1,39 @@
 #!/bin/bash
-# 5D Smiles / WakeWell — New Machine Bootstrap
-# Lives in the public claude-skills-ecosystem repo
+# WakeWell / 5D Smiles — New Machine Bootstrap
+# Source of truth: claude-skills-ecosystem repo
 #
-# Fresh machine (no files):
-#   bash <(curl -s https://raw.githubusercontent.com/Wakewell-Sleep-Solutions/claude-skills-ecosystem/main/scripts/bootstrap.sh)
-#
-# Already have the skills repo:
-#   bash ~/Documents/claude-skills-ecosystem/scripts/bootstrap.sh
+# Fresh machine:   bash <(curl -s https://raw.githubusercontent.com/Wakewell-Sleep-Solutions/claude-skills-ecosystem/main/scripts/bootstrap.sh)
+# Existing clone:  bash ~/Documents/claude-skills-ecosystem/scripts/bootstrap.sh
+
+set -e
 
 echo "========================================="
-echo "  5D Smiles AI Command Center — Setup"
+echo "  WakeWell AI Command Center — Setup"
 echo "========================================="
 echo ""
 
-# --- 1. Homebrew ---
-# Check every possible location before trying to install
-BREW_BIN=""
+PROJECTS="$HOME/Documents"
+SKILLS_REPO="$PROJECTS/claude-skills-ecosystem"
+
+# ─── 1. Homebrew ───────────────────────────────────────────
+# Check every known install location before attempting install
 if command -v brew >/dev/null 2>&1; then
-  BREW_BIN="brew"
+  : # already in PATH
 elif [ -x /opt/homebrew/bin/brew ]; then
-  BREW_BIN="/opt/homebrew/bin/brew"
-  eval "$($BREW_BIN shellenv)"
+  eval "$(/opt/homebrew/bin/brew shellenv)"
 elif [ -x /usr/local/bin/brew ]; then
-  BREW_BIN="/usr/local/bin/brew"
-  eval "$($BREW_BIN shellenv)"
+  eval "$(/usr/local/bin/brew shellenv)"
 elif [ -x "$HOME/.homebrew/bin/brew" ]; then
-  BREW_BIN="$HOME/.homebrew/bin/brew"
-  eval "$($BREW_BIN shellenv)"
+  eval "$("$HOME/.homebrew/bin/brew" shellenv)"
 fi
 
-if [ -z "$BREW_BIN" ]; then
+if ! command -v brew >/dev/null 2>&1; then
   echo "📥 Installing Homebrew (you may need to enter your password)..."
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  # Load into current session + persist
   if [ -x /opt/homebrew/bin/brew ]; then
     eval "$(/opt/homebrew/bin/brew shellenv)"
-    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile 2>/dev/null
+    grep -q 'brew shellenv' ~/.zprofile 2>/dev/null || echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
   elif [ -x /usr/local/bin/brew ]; then
     eval "$(/usr/local/bin/brew shellenv)"
   fi
@@ -42,77 +41,87 @@ else
   echo "✅ Homebrew: already installed"
 fi
 
-# --- 2. Core tools (skip if already installed) ---
+# ─── 2. Core tools ────────────────────────────────────────
 for tool in git node gh tmux; do
   if command -v "$tool" >/dev/null 2>&1; then
-    echo "  ⏭️  $tool (already installed)"
+    echo "  ✅ $tool"
   else
     echo "  📥 Installing $tool..."
     brew install "$tool"
   fi
 done
 
-# --- 3. Claude Code ---
+# ─── 3. Claude Code ───────────────────────────────────────
 if command -v claude >/dev/null 2>&1; then
-  echo "  ⏭️  claude (already installed — $(claude --version 2>/dev/null))"
+  echo "  ✅ claude ($(claude --version 2>/dev/null || echo 'installed'))"
 else
   echo "  📥 Installing Claude Code..."
   npm install -g @anthropic-ai/claude-code
 fi
 
-# --- 4. GitHub auth ---
-if gh auth status >/dev/null 2>&1; then
-  echo "  ⏭️  GitHub (already logged in as $(gh api user -q .login 2>/dev/null))"
+# ─── 4. Ruflo ─────────────────────────────────────────────
+if command -v ruflo >/dev/null 2>&1; then
+  echo "  ✅ ruflo"
 else
-  echo ""
+  echo "  📥 Installing Ruflo..."
+  npm install -g ruflo 2>/dev/null || echo "  ⚠️  Ruflo install failed — install manually: npm install -g ruflo"
+fi
+
+echo ""
+echo "✅ All tools installed"
+
+# ─── 5. GitHub auth ───────────────────────────────────────
+echo ""
+if gh auth status >/dev/null 2>&1; then
+  echo "✅ GitHub: logged in as $(gh api user -q .login 2>/dev/null)"
+else
   echo "Log in to GitHub (this gives access to the private repos):"
   gh auth login
 fi
 
-# --- 5. Infisical ---
+# ─── 6. Infisical ─────────────────────────────────────────
 if ! command -v infisical >/dev/null 2>&1; then
   echo "  📥 Installing Infisical..."
-  brew install infisical/get-cli/infisical 2>/dev/null || true
+  brew install infisical/get-cli/infisical 2>/dev/null || echo "  ⚠️  Infisical install failed"
 else
-  echo "  ⏭️  infisical (already installed)"
+  echo "  ✅ infisical"
 fi
 
 if command -v infisical >/dev/null 2>&1; then
-  if infisical user get >/dev/null 2>&1; then
-    echo "  ⏭️  Infisical (already authenticated)"
+  # Check if already authenticated (try multiple commands since versions differ)
+  INFISICAL_AUTHED=false
+  infisical user get >/dev/null 2>&1 && INFISICAL_AUTHED=true
+  [ "$INFISICAL_AUTHED" = "false" ] && infisical whoami >/dev/null 2>&1 && INFISICAL_AUTHED=true
+
+  if [ "$INFISICAL_AUTHED" = "true" ]; then
+    echo "  ✅ Infisical: already authenticated"
   else
     echo ""
-    echo "Paste your one-time Infisical token (get this from your admin — it expires after one use):"
+    echo "Paste your one-time Infisical token (get this from your admin — expires after one use):"
+    echo "Type 'skip' to set up later."
     read -p "Token: " INFISICAL_TOKEN
-    if [ -n "$INFISICAL_TOKEN" ]; then
-      echo "$INFISICAL_TOKEN" | infisical login --method=universal-auth 2>/dev/null \
+    if [ -n "$INFISICAL_TOKEN" ] && [ "$INFISICAL_TOKEN" != "skip" ]; then
+      infisical login --method=universal-auth --client-id="$INFISICAL_TOKEN" 2>/dev/null \
         || INFISICAL_TOKEN="$INFISICAL_TOKEN" infisical login 2>/dev/null \
-        || echo "⚠️  Token didn't work — ask your admin for a new one"
-      echo "  ✅ Infisical: authenticated"
+        || echo "  ⚠️  Token didn't work — ask your admin for a new one"
     else
-      echo "  ⏭️  Skipped — get your token from your admin and run: infisical login"
+      echo "  ⏭️  Skipped — run 'infisical login' when you have your token"
     fi
   fi
 
-  # Verify secrets are accessible (count only — never show values)
+  # Verify secrets (count only — NEVER show values)
   SECRET_COUNT=$(infisical secrets --env=prod --path=/shared --silent 2>/dev/null | grep -c "│" || echo "0")
   if [ "$SECRET_COUNT" -gt 1 ]; then
     echo "  ✅ Infisical: $SECRET_COUNT secrets accessible in /shared"
   else
-    echo "  ⚠️  Infisical: no secrets found in /shared — check workspace config or ask your admin"
+    echo "  ⚠️  Infisical: can't read /shared secrets — check auth or ask admin"
   fi
 fi
 
-# --- 6. Clone all org repos ---
+# ─── 7. Clone org repos ──────────────────────────────────
 echo ""
 echo "Setting up projects..."
-PROJECTS="$HOME/Documents"
 mkdir -p "$PROJECTS"
-cd "$PROJECTS"
-
-# NEVER move or delete existing folders. Clone to temp, merge in what's missing.
-TEMP_DIR=$(mktemp -d)
-echo "  Using temp: $TEMP_DIR"
 
 gh repo list Wakewell-Sleep-Solutions --limit 50 --json name -q '.[].name' 2>/dev/null | while read repo; do
   TARGET="$PROJECTS/$repo"
@@ -120,62 +129,48 @@ gh repo list Wakewell-Sleep-Solutions --limit 50 --json name -q '.[].name' 2>/de
   BASENAME=$(basename "$TARGET")
 
   if [ -d "$TARGET/.git" ]; then
-    # Already a git repo — just pull latest
-    echo "  ⏭️  $BASENAME/ (git repo — pulling latest)"
-    git -C "$TARGET" pull --ff-only 2>/dev/null || echo "  ⚠️  Pull failed (local changes — that's fine)"
+    echo "  ✅ $BASENAME/ (pulling latest)"
+    git -C "$TARGET" pull --ff-only 2>/dev/null || echo "    ⚠️  Pull skipped (local changes)"
   elif [ -d "$TARGET" ]; then
-    # Folder exists but not a git repo — clone to temp, merge missing files
-    echo "  🔀 $BASENAME/ (exists, not git — merging new files in)"
-    gh repo clone "Wakewell-Sleep-Solutions/$repo" "$TEMP_DIR/$repo" 2>/dev/null || continue
-    # Copy only files that DON'T already exist locally
-    cd "$TEMP_DIR/$repo"
-    find . -type f | while read f; do
-      if [ ! -f "$TARGET/$f" ]; then
-        mkdir -p "$TARGET/$(dirname $f)"
-        cp "$f" "$TARGET/$f"
-        echo "    + $f"
-      fi
-    done
-    # Always update CLAUDE.md and scripts (these should stay current)
-    [ -f "$TEMP_DIR/$repo/CLAUDE.md" ] && cp "$TEMP_DIR/$repo/CLAUDE.md" "$TARGET/CLAUDE.md"
-    [ -d "$TEMP_DIR/$repo/scripts" ] && cp -r "$TEMP_DIR/$repo/scripts/" "$TARGET/scripts/" 2>/dev/null
-    [ -d "$TEMP_DIR/$repo/.claude" ] && cp -rn "$TEMP_DIR/$repo/.claude/" "$TARGET/.claude/" 2>/dev/null
+    # Folder exists but not a git repo — don't touch it
+    echo "  ⏭️  $BASENAME/ (exists, not a git repo — skipping)"
   else
-    # Doesn't exist at all — fresh clone
-    gh repo clone "Wakewell-Sleep-Solutions/$repo" "$TARGET" 2>/dev/null
-    echo "  ✅ $BASENAME/ (cloned)"
+    gh repo clone "Wakewell-Sleep-Solutions/$repo" "$TARGET" 2>/dev/null && echo "  ✅ $BASENAME/ (cloned)" || true
   fi
 done
 
-# Clean up temp
-rm -rf "$TEMP_DIR"
-
-# --- 7. Global Claude config ---
+# ─── 8. Global config from skills repo ───────────────────
 echo ""
-mkdir -p "$HOME/.claude/rules" "$HOME/.claude/templates"
 
-if [ ! -f "$HOME/.claude/CLAUDE.md" ] && [ -f "$PROJECTS/Claude/scripts/global-claude-template.md" ]; then
-  cp "$PROJECTS/Claude/scripts/global-claude-template.md" "$HOME/.claude/CLAUDE.md"
-  echo "✅ Global CLAUDE.md installed"
-else
-  echo "⏭️  Global CLAUDE.md already exists"
+# Find skills repo
+if [ ! -d "$SKILLS_REPO" ]; then
+  for d in "$HOME/.claude-skills" "$PROJECTS/claude-skills-ecosystem"; do
+    [ -d "$d" ] && SKILLS_REPO="$d" && break
+  done
 fi
 
-cat > "$HOME/.claude/rules/verification.md" << 'EOF'
-# Verification (applies to all projects)
-- After completing any task, verify the result works before reporting done
-- For code: run tests. For sites: take a screenshot. For data: spot-check output.
-- Never say "done" without evidence it works.
-EOF
-echo "✅ Rules installed"
+mkdir -p "$HOME/.claude/rules"
 
-# --- 8. Clean stale worktrees ---
+# Global CLAUDE.md
+if [ -f "$SKILLS_REPO/config/global-claude.md" ]; then
+  cp "$SKILLS_REPO/config/global-claude.md" "$HOME/.claude/CLAUDE.md"
+  echo "✅ Global CLAUDE.md installed"
+else
+  echo "⚠️  Global CLAUDE.md not found in skills repo"
+fi
+
+# Rules
+if [ -d "$SKILLS_REPO/config/rules" ]; then
+  cp "$SKILLS_REPO/config/rules/"*.md "$HOME/.claude/rules/" 2>/dev/null
+  echo "✅ Global rules installed"
+fi
+
+# ─── 9. Clean stale worktrees ─────────────────────────────
 for d in "$PROJECTS"/Claude "$PROJECTS"/super-rcm "$PROJECTS"/5dsmiles-landing "$PROJECTS"/WakewellWeb "$PROJECTS"/claude-skills-ecosystem; do
   [ -d "$d/.git" ] && git -C "$d" worktree prune 2>/dev/null
 done
-echo "✅ Worktrees cleaned"
 
-# --- Done ---
+# ─── Done ─────────────────────────────────────────────────
 echo ""
 echo "========================================="
 echo "  ✅ Setup Complete!"
@@ -188,8 +183,8 @@ echo "  dashboard          → cd ~/Documents/5dsmiles-landing && claude"
 echo "  wakewellweb        → cd ~/Documents/WakewellWeb && claude"
 echo "  skills             → cd ~/Documents/claude-skills-ecosystem && claude"
 echo ""
-echo "Parallel:  bash ~/Documents/Claude/scripts/parallel.sh 5"
+echo "Parallel:  bash ~/Documents/claude-skills-ecosystem/scripts/parallel.sh 5"
 echo "Manual:    ~/Documents/Claude/docs/SETUP-GUIDE.md"
 echo ""
-echo "Start here:  cd ~/Documents/Claude && claude"
+echo "Start:     cd ~/Documents/Claude && claude"
 echo ""
