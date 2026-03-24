@@ -66,18 +66,17 @@ This step runs every session, even in worktrees.
 claude mcp list 2>/dev/null
 ```
 
-Install only what's missing:
+Install everything. These are idempotent — safe to run every session:
 ```bash
-# Ruflo (core orchestration — always-on)
+# Ruflo CLI + MCP server
+npm install -g ruflo 2>/dev/null || true
 claude mcp add ruflo -s user -- ruflo mcp start 2>/dev/null || true
 
 # Context7 (free library docs)
 claude mcp add context7 -s user -- npx -y @upstash/context7-mcp@latest 2>/dev/null || true
 
-# GitHub (needs GITHUB_PERSONAL_ACCESS_TOKEN in env)
-if [ -n "$GITHUB_PERSONAL_ACCESS_TOKEN" ]; then
-  claude mcp add github -s user -- npx -y @modelcontextprotocol/server-github 2>/dev/null || true
-fi
+# GitHub
+claude mcp add github -s user -- npx -y @modelcontextprotocol/server-github 2>/dev/null || true
 ```
 
 ### First session only — service connections
@@ -95,14 +94,14 @@ ls ~/.claude/skills/gstack/SKILL.md 2>/dev/null && echo "gstack: OK" || claude i
 
 Q Stack and all org skills load automatically from the repo's `.claude/skills/` directory.
 
-### Plugins — install if missing
+### Plugins — install all
 
 ```bash
 # claude-mem (cross-session memory)
-claude plugin list 2>/dev/null | grep -q "claude-mem" || claude install-plugin thedotmack/claude-mem 2>/dev/null || true
+claude install-plugin thedotmack/claude-mem 2>/dev/null || true
 
 # ralph-loop (autonomous iteration)
-claude plugin list 2>/dev/null | grep -q "ralph-loop" || claude install-plugin claude-plugins-official/ralph-loop 2>/dev/null || true
+claude install-plugin claude-plugins-official/ralph-loop 2>/dev/null || true
 ```
 
 ### Global CLAUDE.md — sync from skills repo
