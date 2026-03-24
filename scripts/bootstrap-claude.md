@@ -31,16 +31,31 @@ If gh or git is MISSING, tell the user:
 
 Then skip to Step 2.
 
-If gh is available, sync all repos:
+If gh is available, sync all repos. **Find by git remote URL, not folder name** — repos may be in different folders on different machines:
 ```bash
 cd ~/Documents
+# First, find all org repos already cloned locally (any folder name)
+for d in ~/Documents/*/; do
+  [ -d "$d/.git" ] || continue
+  REMOTE=$(git -C "$d" remote get-url origin 2>/dev/null || true)
+  if echo "$REMOTE" | grep -qi "Wakewell-Sleep-Solutions"; then
+    echo "  Pulling: $(basename $d)"
+    git -C "$d" pull --ff-only 2>/dev/null || true
+  fi
+done
+
+# Then clone any org repos not found locally
 gh repo list Wakewell-Sleep-Solutions --limit 50 --json name -q '.[].name' | while read repo; do
-  TARGET="$repo"
-  [ "$repo" = "aria-slack-bot" ] && TARGET="Claude"
-  if [ -d "$TARGET/.git" ]; then
-    git -C "$TARGET" pull --ff-only 2>/dev/null || true
-  elif [ ! -d "$TARGET" ]; then
-    gh repo clone "Wakewell-Sleep-Solutions/$repo" "$TARGET" 2>/dev/null || true
+  # Check if this repo is already cloned (any folder)
+  FOUND=false
+  for d in ~/Documents/*/; do
+    REMOTE=$(git -C "$d" remote get-url origin 2>/dev/null || true)
+    echo "$REMOTE" | grep -qi "$repo" && FOUND=true && break
+  done
+  if [ "$FOUND" = "false" ]; then
+    TARGET="$repo"
+    [ "$repo" = "aria-slack-bot" ] && TARGET="Claude"
+    [ ! -d "$TARGET" ] && gh repo clone "Wakewell-Sleep-Solutions/$repo" "$TARGET" 2>/dev/null || true
   fi
 done
 ```

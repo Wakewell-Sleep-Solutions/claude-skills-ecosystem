@@ -118,24 +118,44 @@ if command -v infisical >/dev/null 2>&1; then
   fi
 fi
 
-# ─── 7. Clone org repos ──────────────────────────────────
+# ─── 7. Clone/sync org repos ─────────────────────────────
+# Strategy: find repos by git remote URL, not folder name.
+# If a repo is already cloned anywhere in ~/Documents, pull it there.
+# Only clone to default location if not found anywhere.
 echo ""
 echo "Setting up projects..."
 mkdir -p "$PROJECTS"
 
-gh repo list Wakewell-Sleep-Solutions --limit 50 --json name -q '.[].name' 2>/dev/null | while read repo; do
-  TARGET="$PROJECTS/$repo"
-  [ "$repo" = "aria-slack-bot" ] && TARGET="$PROJECTS/Claude"
-  BASENAME=$(basename "$TARGET")
+# Build a map of which org repos already exist locally (by remote URL)
+declare -A LOCAL_REPOS
+for d in "$PROJECTS"/*/; do
+  [ -d "$d/.git" ] || continue
+  REMOTE=$(git -C "$d" remote get-url origin 2>/dev/null || true)
+  if echo "$REMOTE" | grep -qi "Wakewell-Sleep-Solutions" 2>/dev/null; then
+    # Extract repo name from URL (handles both HTTPS and SSH)
+    REPO_NAME=$(echo "$REMOTE" | sed 's|.*/||' | sed 's|\.git$||')
+    LOCAL_REPOS["$REPO_NAME"]="$d"
+  fi
+done
 
-  if [ -d "$TARGET/.git" ]; then
+gh repo list Wakewell-Sleep-Solutions --limit 50 --json name -q '.[].name' 2>/dev/null | while read repo; do
+  # Check if already cloned somewhere (any folder name)
+  EXISTING="${LOCAL_REPOS[$repo]}"
+
+  if [ -n "$EXISTING" ]; then
+    BASENAME=$(basename "$EXISTING")
     echo "  ✅ $BASENAME/ (pulling latest)"
-    git -C "$TARGET" pull --ff-only 2>/dev/null || echo "    ⚠️  Pull skipped (local changes)"
-  elif [ -d "$TARGET" ]; then
-    # Folder exists but not a git repo — don't touch it
-    echo "  ⏭️  $BASENAME/ (exists, not a git repo — skipping)"
+    git -C "$EXISTING" pull --ff-only 2>/dev/null || echo "    ⚠️  Pull skipped (local changes or worktree)"
   else
-    gh repo clone "Wakewell-Sleep-Solutions/$repo" "$TARGET" 2>/dev/null && echo "  ✅ $BASENAME/ (cloned)" || true
+    # Not found anywhere — clone to default location
+    TARGET="$PROJECTS/$repo"
+    [ "$repo" = "aria-slack-bot" ] && TARGET="$PROJECTS/Claude"
+
+    if [ -d "$TARGET" ]; then
+      echo "  ⏭️  $(basename $TARGET)/ (exists, not this repo — skipping)"
+    else
+      gh repo clone "Wakewell-Sleep-Solutions/$repo" "$TARGET" 2>/dev/null && echo "  ✅ $(basename $TARGET)/ (cloned)" || true
+    fi
   fi
 done
 
