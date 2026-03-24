@@ -67,7 +67,10 @@ claude mcp list 2>/dev/null || echo "Can't check MCP list"
 
 Install only what's missing:
 ```bash
-# Ruflo / Claude-Flow (core orchestration — always-on)
+# Ruflo (core orchestration — always-on)
+claude mcp add ruflo -s user -- ruflo mcp start 2>/dev/null || true
+
+# Claude-Flow (CLI tools)
 claude mcp add claude-flow -s user -- npx -y @claude-flow/cli@latest mcp start 2>/dev/null || true
 
 # Context7 (free library docs)
