@@ -67,11 +67,8 @@ claude mcp list 2>/dev/null || echo "Can't check MCP list"
 
 Install only what's missing:
 ```bash
-# Ruflo (core orchestration — always-on)
+# Ruflo (core orchestration — always-on, replaces claude-flow)
 claude mcp add ruflo -s user -- ruflo mcp start 2>/dev/null || true
-
-# Claude-Flow (CLI tools)
-claude mcp add claude-flow -s user -- npx -y @claude-flow/cli@latest mcp start 2>/dev/null || true
 
 # Context7 (free library docs)
 claude mcp add context7 -s user -- npx -y @upstash/context7-mcp@latest 2>/dev/null || true
@@ -93,6 +90,35 @@ ls ~/.claude/skills/gstack/SKILL.md 2>/dev/null && echo "gstack: OK" || claude i
 ```
 
 Q Stack and all org skills come from the repo's `.claude/skills/` directory — available automatically once cloned.
+
+**Global CLAUDE.md** — sync from skills repo to user config:
+```bash
+SKILLS_DIR=""
+for d in ~/Documents/claude-skills-ecosystem ~/.claude-skills; do
+  [ -d "$d" ] && SKILLS_DIR="$d" && break
+done
+
+if [ -n "$SKILLS_DIR" ] && [ -f "$SKILLS_DIR/config/global-claude.md" ]; then
+  # Only update if skills repo version is newer
+  if [ ! -f ~/.claude/CLAUDE.md ] || ! diff -q "$SKILLS_DIR/config/global-claude.md" ~/.claude/CLAUDE.md >/dev/null 2>&1; then
+    cp "$SKILLS_DIR/config/global-claude.md" ~/.claude/CLAUDE.md
+    echo "Global CLAUDE.md updated from skills repo"
+  else
+    echo "Global CLAUDE.md: up to date"
+  fi
+else
+  echo "Global CLAUDE.md: skills repo not found — skipping sync"
+fi
+```
+
+**Rules** — sync from skills repo:
+```bash
+if [ -n "$SKILLS_DIR" ] && [ -d "$SKILLS_DIR/config/rules" ]; then
+  mkdir -p ~/.claude/rules
+  cp "$SKILLS_DIR/config/rules/"*.md ~/.claude/rules/ 2>/dev/null
+  echo "Global rules synced"
+fi
+```
 
 ## Step 2: Read org context
 
