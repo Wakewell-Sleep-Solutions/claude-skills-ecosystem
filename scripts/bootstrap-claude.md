@@ -32,18 +32,31 @@ If MCP_MISSING, tell the user:
 
 Then STOP. MCP servers can't be added mid-session.
 
-## Step 3: Check plugins
+## Step 3: Check plugins and skills
 
 ```bash
-claude plugin list 2>/dev/null | grep -E "claude-mem|ralph" || echo "PLUGINS_MISSING"
+echo "gstack:$([ -d ~/.claude/skills/gstack ] && echo OK || echo MISSING)"
+claude plugin list 2>/dev/null | grep -c "claude-mem" | xargs -I{} echo "claude-mem:{}"
+claude plugin list 2>/dev/null | grep -c "ralph" | xargs -I{} echo "ralph-loop:{}"
 ```
 
-If PLUGINS_MISSING, tell the user:
-> "Plugins need setup. Run these in a fresh Claude session:"
+If gstack is MISSING, tell the user:
+> "gstack needs to be installed. Run this in Claude: `/install-skill garrytan/gstack`"
+
+If plugins are missing, tell the user which ones:
 > `/install-plugin thedotmack/claude-mem`
 > `/install-plugin claude-plugins-official/ralph-loop`
 
-Note the missing plugins but continue — they're not blocking.
+Note the missing items but continue — they're not blocking.
+
+## Step 3b: Verify Infisical secrets
+
+```bash
+infisical secrets --env=prod --path=/shared --silent 2>/dev/null | grep -c "│" || echo "0"
+```
+
+If count is 0 or errors: tell user "Infisical isn't connected. Run `infisical login` in Terminal."
+If count > 0: say nothing (it's working).
 
 ## Step 4: Sync repos (skip in worktrees)
 
