@@ -101,22 +101,21 @@ If no Slack/Gmail/Notion/Stripe integrations are configured, ASK:
 
 Walk them through OAuth or API key setup for each.
 
-### Skills — install gstack if missing
+### Skills & Plugins — prompt-based install
 
-```bash
-ls ~/.claude/skills/gstack/SKILL.md 2>/dev/null && echo "gstack: OK" || claude install-skill garrytan/gstack 2>/dev/null || true
-```
+These don't install reliably via scripted commands. Instead, prompt the user:
 
-Q Stack and all org skills load automatically from the repo's `.claude/skills/` directory.
+> "I need to install some tools. Please approve each one:"
 
-### Plugins — install all
+Then run these one at a time, waiting for user approval:
 
-```bash
-# claude-mem (cross-session memory)
-claude install-plugin thedotmack/claude-mem 2>/dev/null || true
+1. **gstack** (QA browser testing): `/install-skill garrytan/gstack`
+2. **claude-mem** (cross-session memory): `/install-plugin thedotmack/claude-mem`
+3. **ralph-loop** (autonomous iteration): `/install-plugin claude-plugins-official/ralph-loop`
 
-# ralph-loop (autonomous iteration)
-claude install-plugin claude-plugins-official/ralph-loop 2>/dev/null || true
+If any fail, tell the user: "Run this in a fresh terminal: `claude` then type the install command."
+
+Q Stack and all org skills load automatically from the repo's `.claude/skills/` directory — no install needed for those.
 ```
 
 ### Global CLAUDE.md — sync from skills repo (repo is source of truth)
