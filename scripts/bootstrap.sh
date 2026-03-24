@@ -97,15 +97,16 @@ if command -v infisical >/dev/null 2>&1; then
     echo "  ✅ Infisical: already authenticated"
   else
     echo ""
-    echo "Paste your one-time Infisical token (get this from your admin — expires after one use):"
+    echo "Log in to Infisical (this opens a browser window):"
     echo "Type 'skip' to set up later."
-    read -p "Token: " INFISICAL_TOKEN
-    if [ -n "$INFISICAL_TOKEN" ] && [ "$INFISICAL_TOKEN" != "skip" ]; then
-      infisical login --method=universal-auth --client-id="$INFISICAL_TOKEN" 2>/dev/null \
-        || INFISICAL_TOKEN="$INFISICAL_TOKEN" infisical login 2>/dev/null \
-        || echo "  ⚠️  Token didn't work — ask your admin for a new one"
+    read -p "Press Enter to log in (or type 'skip'): " INFISICAL_CHOICE
+    if [ "$INFISICAL_CHOICE" != "skip" ]; then
+      infisical login
+      if [ $? -ne 0 ]; then
+        echo "  ⚠️  Login failed — try 'infisical login -i' for interactive mode"
+      fi
     else
-      echo "  ⏭️  Skipped — run 'infisical login' when you have your token"
+      echo "  ⏭️  Skipped — run 'infisical login' when ready"
     fi
   fi
 

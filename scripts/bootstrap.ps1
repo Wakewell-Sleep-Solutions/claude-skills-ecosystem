@@ -100,17 +100,16 @@ if (Get-Command infisical -ErrorAction SilentlyContinue) {
         Write-Host "  OK Infisical: already authenticated" -ForegroundColor Green
     } else {
         Write-Host ""
-        Write-Host "Paste your one-time Infisical token (get this from your admin - expires after one use):" -ForegroundColor Yellow
+        Write-Host "Log in to Infisical (this opens a browser window):" -ForegroundColor Yellow
         Write-Host "Type 'skip' to set up later."
-        $token = Read-Host "Token"
-        if ($token -and $token -ne "skip") {
-            $env:INFISICAL_TOKEN = $token
-            infisical login 2>$null
+        $choice = Read-Host "Press Enter to log in (or type 'skip')"
+        if ($choice -ne "skip") {
+            infisical login
             if (-not $?) {
-                Write-Host "  Token didn't work - ask your admin for a new one" -ForegroundColor Red
+                Write-Host "  Login failed - try 'infisical login -i' for interactive mode" -ForegroundColor Red
             }
         } else {
-            Write-Host "  Skipped - run 'infisical login' when you have your token" -ForegroundColor Yellow
+            Write-Host "  Skipped - run 'infisical login' when ready" -ForegroundColor Yellow
         }
     }
 
