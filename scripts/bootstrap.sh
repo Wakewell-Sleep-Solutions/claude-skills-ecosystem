@@ -187,18 +187,43 @@ if [ -d "$SKILLS_REPO/config/rules" ]; then
   echo "✅ Global rules synced"
 fi
 
-# ─── 9. Claude plugins ────────────────────────────────────
+# ─── 9. MCP servers ───────────────────────────────────────
 if command -v claude >/dev/null 2>&1; then
+  echo ""
+  echo "Setting up MCP servers..."
+
+  # Ruflo (core orchestration)
+  claude mcp list 2>/dev/null | grep -q "ruflo" && echo "  ✅ ruflo MCP" \
+    || { echo "  📥 Adding ruflo MCP..."; claude mcp add ruflo -s user -- ruflo mcp start 2>/dev/null || true; }
+
+  # Context7 (free library docs)
+  claude mcp list 2>/dev/null | grep -q "context7" && echo "  ✅ context7 MCP" \
+    || { echo "  📥 Adding context7 MCP..."; claude mcp add context7 -s user -- npx -y @upstash/context7-mcp@latest 2>/dev/null || true; }
+
+  # GitHub
+  claude mcp list 2>/dev/null | grep -q "github" && echo "  ✅ github MCP" \
+    || { echo "  📥 Adding github MCP..."; claude mcp add github -s user -- npx -y @modelcontextprotocol/server-github 2>/dev/null || true; }
+fi
+
+# ─── 10. Claude plugins ───────────────────────────────────
+if command -v claude >/dev/null 2>&1; then
+  echo ""
+  echo "Setting up plugins..."
+
+  # gstack (QA browser testing)
+  [ -d "$HOME/.claude/skills/gstack" ] && echo "  ✅ gstack" \
+    || { echo "  📥 Installing gstack..."; claude install-skill garrytan/gstack 2>/dev/null || echo "  ⚠️  gstack failed — run '/install-skill garrytan/gstack' inside Claude"; }
+
   # claude-mem (cross-session memory)
   claude plugin list 2>/dev/null | grep -q "claude-mem" && echo "  ✅ claude-mem" \
-    || { echo "  📥 Installing claude-mem..."; claude install-plugin thedotmack/claude-mem 2>/dev/null || true; }
+    || { echo "  📥 Installing claude-mem..."; claude install-plugin thedotmack/claude-mem 2>/dev/null || echo "  ⚠️  claude-mem failed — run '/install-plugin thedotmack/claude-mem' inside Claude"; }
 
   # ralph-loop (autonomous iteration)
   claude plugin list 2>/dev/null | grep -q "ralph-loop" && echo "  ✅ ralph-loop" \
-    || { echo "  📥 Installing ralph-loop..."; claude install-plugin claude-plugins-official/ralph-loop 2>/dev/null || true; }
+    || { echo "  📥 Installing ralph-loop..."; claude install-plugin claude-plugins-official/ralph-loop 2>/dev/null || echo "  ⚠️  ralph-loop failed — run '/install-plugin claude-plugins-official/ralph-loop' inside Claude"; }
 fi
 
-# ─── 10. Clean stale worktrees ────────────────────────────
+# ─── 11. Clean stale worktrees ────────────────────────────
 for d in "$PROJECTS"/Claude "$PROJECTS"/super-rcm "$PROJECTS"/5dsmiles-landing "$PROJECTS"/WakewellWeb "$PROJECTS"/claude-skills-ecosystem; do
   [ -d "$d/.git" ] && git -C "$d" worktree prune 2>/dev/null
 done
