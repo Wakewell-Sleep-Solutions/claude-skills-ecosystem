@@ -25,28 +25,10 @@ fi
 
 # Map project to Infisical path
 case "$PROJECT" in
-  aria|rcm|super-rcm|dashboard|5dsmiles)
-    INFISICAL_PATH="/server"
-    ;;
-  web|wakewellweb|skills)
+  # All projects connect to /shared only
+  # /server and /henry-only are restricted to admin
+  aria|rcm|super-rcm|dashboard|5dsmiles|web|wakewellweb|skills|*)
     INFISICAL_PATH="/shared"
-    ;;
-  henry|admin)
-    INFISICAL_PATH="/henry-only"
-    ;;
-  *)
-    echo "Which Infisical folder does this project use?"
-    echo ""
-    echo "  1) /shared      — team-wide secrets (default)"
-    echo "  2) /server      — server-side API keys (Aria, RCM, Dashboard)"
-    echo "  3) /henry-only  — admin-only keys"
-    echo ""
-    read -p "Choice [1]: " CHOICE
-    case "$CHOICE" in
-      2) INFISICAL_PATH="/server" ;;
-      3) INFISICAL_PATH="/henry-only" ;;
-      *) INFISICAL_PATH="/shared" ;;
-    esac
     ;;
 esac
 

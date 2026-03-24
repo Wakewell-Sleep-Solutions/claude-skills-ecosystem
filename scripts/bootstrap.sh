@@ -109,12 +109,14 @@ if command -v infisical >/dev/null 2>&1; then
     fi
   fi
 
-  # Verify secrets across all folders (count only — NEVER show values)
-  # Org: henry-qiu-os | Folders: henry-only, server, shared, 3
-  for IPATH in /shared /server /henry-only; do
-    COUNT=$(infisical secrets --env=prod --path="$IPATH" --silent 2>/dev/null | grep -c "│" || echo "0")
-    [ "$COUNT" -gt 0 ] && echo "  ✅ Infisical $IPATH: $COUNT secrets" || echo "  ⚠️  Infisical $IPATH: no access"
-  done
+  # Verify secrets (count only — NEVER show values)
+  # Team members only get /shared — /server and /henry-only are admin-only
+  SECRET_COUNT=$(infisical secrets --env=prod --path=/shared --silent 2>/dev/null | grep -c "│" || echo "0")
+  if [ "$SECRET_COUNT" -gt 0 ]; then
+    echo "  ✅ Infisical: $SECRET_COUNT secrets accessible in /shared"
+  else
+    echo "  ⚠️  Infisical: can't read /shared secrets — check auth or ask admin"
+  fi
 fi
 
 # ─── 7. Clone/sync org repos ─────────────────────────────
