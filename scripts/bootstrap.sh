@@ -120,31 +120,34 @@ fi
 
 # ─── 7. Clone/sync org repos ─────────────────────────────
 # Strategy: find repos by git remote URL, not folder name.
-# If a repo is already cloned anywhere in ~/Documents, pull it there.
-# Only clone to default location if not found anywhere.
+# Scans ~/Documents/ recursively (2 levels deep) to find existing clones.
+# If found anywhere, pull there. Only clone to default location if not found.
 echo ""
 echo "Setting up projects..."
 mkdir -p "$PROJECTS"
 
-# Build a map of which org repos already exist locally (by remote URL)
-declare -A LOCAL_REPOS
-for d in "$PROJECTS"/*/; do
-  [ -d "$d/.git" ] || continue
-  REMOTE=$(git -C "$d" remote get-url origin 2>/dev/null || true)
-  if echo "$REMOTE" | grep -qi "Wakewell-Sleep-Solutions" 2>/dev/null; then
-    # Extract repo name from URL (handles both HTTPS and SSH)
+# Build a map file of org repos already cloned locally (avoids subshell variable issues)
+REPO_MAP=$(mktemp)
+find "$PROJECTS" -maxdepth 2 -name ".git" -type d 2>/dev/null | while read gitdir; do
+  REPO_DIR=$(dirname "$gitdir")
+  REMOTE=$(git -C "$REPO_DIR" remote get-url origin 2>/dev/null || true)
+  if echo "$REMOTE" | grep -qi "Wakewell-Sleep-Solutions"; then
     REPO_NAME=$(echo "$REMOTE" | sed 's|.*/||' | sed 's|\.git$||')
-    LOCAL_REPOS["$REPO_NAME"]="$d"
+    echo "$REPO_NAME|$REPO_DIR" >> "$REPO_MAP"
   fi
 done
 
-gh repo list Wakewell-Sleep-Solutions --limit 50 --json name -q '.[].name' 2>/dev/null | while read repo; do
-  # Check if already cloned somewhere (any folder name)
-  EXISTING="${LOCAL_REPOS[$repo]}"
+# Get list of all org repos from GitHub
+REPO_LIST=$(gh repo list Wakewell-Sleep-Solutions --limit 50 --json name -q '.[].name' 2>/dev/null)
+
+echo "$REPO_LIST" | while read repo; do
+  [ -z "$repo" ] && continue
+
+  # Check if already cloned somewhere (any folder name, any depth)
+  EXISTING=$(grep "^${repo}|" "$REPO_MAP" 2>/dev/null | head -1 | cut -d'|' -f2)
 
   if [ -n "$EXISTING" ]; then
-    BASENAME=$(basename "$EXISTING")
-    echo "  ✅ $BASENAME/ (pulling latest)"
+    echo "  ✅ $(basename $EXISTING)/ (pulling latest)"
     git -C "$EXISTING" pull --ff-only 2>/dev/null || echo "    ⚠️  Pull skipped (local changes or worktree)"
   else
     # Not found anywhere — clone to default location
@@ -158,6 +161,8 @@ gh repo list Wakewell-Sleep-Solutions --limit 50 --json name -q '.[].name' 2>/de
     fi
   fi
 done
+
+rm -f "$REPO_MAP"
 
 # ─── 8. Global config from skills repo ───────────────────
 echo ""
