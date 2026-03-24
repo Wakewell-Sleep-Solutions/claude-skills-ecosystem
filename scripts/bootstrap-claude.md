@@ -104,7 +104,7 @@ claude install-plugin thedotmack/claude-mem 2>/dev/null || true
 claude install-plugin claude-plugins-official/ralph-loop 2>/dev/null || true
 ```
 
-### Global CLAUDE.md — sync from skills repo
+### Global CLAUDE.md — sync from skills repo (never delete local additions)
 
 ```bash
 SKILLS_DIR=""
@@ -113,19 +113,31 @@ for d in ~/Documents/claude-skills-ecosystem ~/.claude-skills; do
 done
 
 if [ -n "$SKILLS_DIR" ] && [ -f "$SKILLS_DIR/config/global-claude.md" ]; then
-  if [ ! -f ~/.claude/CLAUDE.md ] || ! diff -q "$SKILLS_DIR/config/global-claude.md" ~/.claude/CLAUDE.md >/dev/null 2>&1; then
+  if [ ! -f ~/.claude/CLAUDE.md ]; then
+    # First time — copy it in
     cp "$SKILLS_DIR/config/global-claude.md" ~/.claude/CLAUDE.md
-    echo "Global CLAUDE.md updated"
+    echo "Global CLAUDE.md installed (first time)"
+  elif ! diff -q "$SKILLS_DIR/config/global-claude.md" ~/.claude/CLAUDE.md >/dev/null 2>&1; then
+    # Files differ — back up local, then copy repo version
+    cp ~/.claude/CLAUDE.md ~/.claude/CLAUDE.md.backup
+    cp "$SKILLS_DIR/config/global-claude.md" ~/.claude/CLAUDE.md
+    echo "Global CLAUDE.md updated (backup saved as CLAUDE.md.backup)"
   fi
 fi
 ```
 
-### Global rules — sync from skills repo
+### Global rules — sync from skills repo (add new rules, never delete existing ones)
 
 ```bash
 if [ -n "$SKILLS_DIR" ] && [ -d "$SKILLS_DIR/config/rules" ]; then
   mkdir -p ~/.claude/rules
-  cp "$SKILLS_DIR/config/rules/"*.md ~/.claude/rules/ 2>/dev/null
+  # Only copy rules that are new or updated — never remove existing local rules
+  for f in "$SKILLS_DIR/config/rules/"*.md; do
+    BASENAME=$(basename "$f")
+    if [ ! -f ~/.claude/rules/"$BASENAME" ] || ! diff -q "$f" ~/.claude/rules/"$BASENAME" >/dev/null 2>&1; then
+      cp "$f" ~/.claude/rules/"$BASENAME"
+    fi
+  done
 fi
 ```
 

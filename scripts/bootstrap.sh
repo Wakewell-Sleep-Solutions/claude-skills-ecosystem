@@ -151,18 +151,24 @@ fi
 
 mkdir -p "$HOME/.claude/rules"
 
-# Global CLAUDE.md
+# Global CLAUDE.md (backup existing before overwriting)
 if [ -f "$SKILLS_REPO/config/global-claude.md" ]; then
+  if [ -f "$HOME/.claude/CLAUDE.md" ]; then
+    cp "$HOME/.claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md.backup"
+    echo "  📋 Existing CLAUDE.md backed up to CLAUDE.md.backup"
+  fi
   cp "$SKILLS_REPO/config/global-claude.md" "$HOME/.claude/CLAUDE.md"
   echo "✅ Global CLAUDE.md installed"
 else
   echo "⚠️  Global CLAUDE.md not found in skills repo"
 fi
 
-# Rules
+# Rules (add new, never delete existing local rules)
 if [ -d "$SKILLS_REPO/config/rules" ]; then
-  cp "$SKILLS_REPO/config/rules/"*.md "$HOME/.claude/rules/" 2>/dev/null
-  echo "✅ Global rules installed"
+  for f in "$SKILLS_REPO/config/rules/"*.md; do
+    [ -f "$f" ] && cp "$f" "$HOME/.claude/rules/$(basename "$f")"
+  done
+  echo "✅ Global rules synced"
 fi
 
 # ─── 9. Claude plugins ────────────────────────────────────
