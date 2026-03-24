@@ -233,35 +233,48 @@ if (Get-Command claude -ErrorAction SilentlyContinue) {
     }
 }
 
-# --- 10. Plugins ---
-if (Get-Command claude -ErrorAction SilentlyContinue) {
-    Write-Host ""
-    Write-Host "Setting up plugins..."
+# --- 10. Skills & plugins (git clone - not interactive commands) ---
+Write-Host ""
+Write-Host "Setting up skills & plugins..."
 
-    if (Test-Path "$HOME\.claude\skills\gstack") {
-        Write-Host "  OK gstack" -ForegroundColor Green
-    } else {
-        Write-Host "  Installing gstack..." -ForegroundColor Yellow
-        claude install-skill garrytan/gstack 2>$null
-        if (-not $?) { Write-Host "  gstack failed - run '/install-skill garrytan/gstack' inside Claude" -ForegroundColor Red }
-    }
+$SkillsDir = "$HOME\.claude\skills"
+$PluginsDir = "$HOME\.claude\plugins\marketplaces"
+if (-not (Test-Path $SkillsDir)) { New-Item -ItemType Directory -Path $SkillsDir -Force | Out-Null }
+if (-not (Test-Path $PluginsDir)) { New-Item -ItemType Directory -Path $PluginsDir -Force | Out-Null }
 
-    $pluginList = claude plugin list 2>$null
-    if ($pluginList -match "claude-mem") {
-        Write-Host "  OK claude-mem" -ForegroundColor Green
-    } else {
-        Write-Host "  Installing claude-mem..." -ForegroundColor Yellow
-        claude install-plugin thedotmack/claude-mem 2>$null
-        if (-not $?) { Write-Host "  claude-mem failed - run '/install-plugin thedotmack/claude-mem' inside Claude" -ForegroundColor Red }
-    }
+# gstack + all org skills
+if (Test-Path "$SkillsDir\.git") {
+    Write-Host "  OK skills (pulling latest)" -ForegroundColor Green
+    git -C $SkillsDir pull --ff-only 2>$null
+} elseif (Test-Path "$SkillsDir\gstack") {
+    Write-Host "  OK gstack (already present)" -ForegroundColor Green
+} else {
+    Write-Host "  Installing skills (gstack + all org skills)..." -ForegroundColor Yellow
+    git clone https://github.com/Wakewell-Sleep-Solutions/claude-skills-ecosystem.git "$SkillsDir" 2>$null
+    if ($?) { Write-Host "  OK skills installed" -ForegroundColor Green }
+    else { Write-Host "  Skills clone failed - need GitHub access" -ForegroundColor Red }
+}
 
-    if ($pluginList -match "ralph") {
-        Write-Host "  OK ralph-loop" -ForegroundColor Green
-    } else {
-        Write-Host "  Installing ralph-loop..." -ForegroundColor Yellow
-        claude install-plugin claude-plugins-official/ralph-loop 2>$null
-        if (-not $?) { Write-Host "  ralph-loop failed - run '/install-plugin claude-plugins-official/ralph-loop' inside Claude" -ForegroundColor Red }
-    }
+# claude-mem
+if (Test-Path "$PluginsDir\thedotmack") {
+    Write-Host "  OK claude-mem (pulling latest)" -ForegroundColor Green
+    git -C "$PluginsDir\thedotmack" pull --ff-only 2>$null
+} else {
+    Write-Host "  Installing claude-mem..." -ForegroundColor Yellow
+    git clone https://github.com/thedotmack/claude-mem.git "$PluginsDir\thedotmack" 2>$null
+    if ($?) { Write-Host "  OK claude-mem installed" -ForegroundColor Green }
+    else { Write-Host "  claude-mem clone failed" -ForegroundColor Red }
+}
+
+# ralph-loop
+if (Test-Path "$PluginsDir\claude-plugins-official") {
+    Write-Host "  OK ralph-loop (pulling latest)" -ForegroundColor Green
+    git -C "$PluginsDir\claude-plugins-official" pull --ff-only 2>$null
+} else {
+    Write-Host "  Installing ralph-loop..." -ForegroundColor Yellow
+    git clone https://github.com/claude-plugins-official/ralph-loop.git "$PluginsDir\claude-plugins-official" 2>$null
+    if ($?) { Write-Host "  OK ralph-loop installed" -ForegroundColor Green }
+    else { Write-Host "  ralph-loop clone failed" -ForegroundColor Red }
 }
 
 # --- 11. Clean stale worktrees ---

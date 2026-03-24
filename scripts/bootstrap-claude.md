@@ -32,22 +32,27 @@ If MCP_MISSING, tell the user:
 
 Then STOP. MCP servers can't be added mid-session.
 
-## Step 3: Check plugins and skills
+## Step 3: Check skills and plugins
 
 ```bash
 echo "gstack:$([ -d ~/.claude/skills/gstack ] && echo OK || echo MISSING)"
-claude plugin list 2>/dev/null | grep -c "claude-mem" | xargs -I{} echo "claude-mem:{}"
-claude plugin list 2>/dev/null | grep -c "ralph" | xargs -I{} echo "ralph-loop:{}"
+echo "claude-mem:$([ -d ~/.claude/plugins/marketplaces/thedotmack ] && echo OK || echo MISSING)"
+echo "ralph-loop:$([ -d ~/.claude/plugins/marketplaces/claude-plugins-official ] && echo OK || echo MISSING)"
 ```
 
-If gstack is MISSING, tell the user:
-> "gstack needs to be installed. Run this in Claude: `/install-skill garrytan/gstack`"
+If ANY are MISSING, install them via git clone (NOT via `claude install-skill` — that's interactive only):
+```bash
+# gstack + all org skills
+[ -d ~/.claude/skills/gstack ] || git clone https://github.com/Wakewell-Sleep-Solutions/claude-skills-ecosystem.git ~/.claude/skills 2>/dev/null
 
-If plugins are missing, tell the user which ones:
-> `/install-plugin thedotmack/claude-mem`
-> `/install-plugin claude-plugins-official/ralph-loop`
+# claude-mem
+[ -d ~/.claude/plugins/marketplaces/thedotmack ] || git clone https://github.com/thedotmack/claude-mem.git ~/.claude/plugins/marketplaces/thedotmack 2>/dev/null
 
-Note the missing items but continue — they're not blocking.
+# ralph-loop
+[ -d ~/.claude/plugins/marketplaces/claude-plugins-official ] || git clone https://github.com/claude-plugins-official/ralph-loop.git ~/.claude/plugins/marketplaces/claude-plugins-official 2>/dev/null
+```
+
+Tell the user what was installed. If clone fails, they need GitHub access — tell them to run the human bootstrap first.
 
 ## Step 3b: Verify Infisical secrets
 

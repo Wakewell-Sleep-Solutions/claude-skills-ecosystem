@@ -210,22 +210,56 @@ if command -v claude >/dev/null 2>&1; then
     || { echo "  📥 Adding github MCP..."; claude mcp add github -s user -- npx -y @modelcontextprotocol/server-github 2>/dev/null || true; }
 fi
 
-# ─── 10. Claude plugins ───────────────────────────────────
-if command -v claude >/dev/null 2>&1; then
-  echo ""
-  echo "Setting up plugins..."
+# ─── 10. Skills & plugins (git clone — not interactive commands) ──
+echo ""
+echo "Setting up skills & plugins..."
 
-  # gstack (QA browser testing)
-  [ -d "$HOME/.claude/skills/gstack" ] && echo "  ✅ gstack" \
-    || { echo "  📥 Installing gstack..."; claude install-skill garrytan/gstack 2>/dev/null || echo "  ⚠️  gstack failed — run '/install-skill garrytan/gstack' inside Claude"; }
+SKILLS_DIR="$HOME/.claude/skills"
+PLUGINS_DIR="$HOME/.claude/plugins/marketplaces"
+mkdir -p "$SKILLS_DIR" "$PLUGINS_DIR"
 
-  # claude-mem (cross-session memory)
-  claude plugin list 2>/dev/null | grep -q "claude-mem" && echo "  ✅ claude-mem" \
-    || { echo "  📥 Installing claude-mem..."; claude install-plugin thedotmack/claude-mem 2>/dev/null || echo "  ⚠️  claude-mem failed — run '/install-plugin thedotmack/claude-mem' inside Claude"; }
+# gstack + all org skills (entire skills ecosystem repo IS the skills dir)
+if [ -d "$SKILLS_DIR/.git" ]; then
+  echo "  ✅ skills (pulling latest)"
+  git -C "$SKILLS_DIR" pull --ff-only 2>/dev/null || echo "    ⚠️  Pull skipped"
+elif [ -d "$SKILLS_DIR/gstack" ]; then
+  echo "  ✅ gstack (already present)"
+else
+  echo "  📥 Installing skills (gstack + all org skills)..."
+  # Clone into temp, move contents to skills dir (preserving existing files)
+  TEMP_SKILLS=$(mktemp -d)
+  git clone https://github.com/Wakewell-Sleep-Solutions/claude-skills-ecosystem.git "$TEMP_SKILLS" 2>/dev/null
+  if [ $? -eq 0 ]; then
+    # Move git repo into skills dir
+    rm -rf "$SKILLS_DIR/.git" 2>/dev/null
+    cp -r "$TEMP_SKILLS/." "$SKILLS_DIR/"
+    echo "  ✅ skills installed"
+  else
+    echo "  ⚠️  Skills clone failed — need GitHub access"
+  fi
+  rm -rf "$TEMP_SKILLS"
+fi
 
-  # ralph-loop (autonomous iteration)
-  claude plugin list 2>/dev/null | grep -q "ralph-loop" && echo "  ✅ ralph-loop" \
-    || { echo "  📥 Installing ralph-loop..."; claude install-plugin claude-plugins-official/ralph-loop 2>/dev/null || echo "  ⚠️  ralph-loop failed — run '/install-plugin claude-plugins-official/ralph-loop' inside Claude"; }
+# claude-mem (cross-session memory)
+if [ -d "$PLUGINS_DIR/thedotmack" ]; then
+  echo "  ✅ claude-mem (pulling latest)"
+  git -C "$PLUGINS_DIR/thedotmack" pull --ff-only 2>/dev/null || true
+else
+  echo "  📥 Installing claude-mem..."
+  git clone https://github.com/thedotmack/claude-mem.git "$PLUGINS_DIR/thedotmack" 2>/dev/null \
+    && echo "  ✅ claude-mem installed" \
+    || echo "  ⚠️  claude-mem clone failed"
+fi
+
+# ralph-loop (autonomous iteration)
+if [ -d "$PLUGINS_DIR/claude-plugins-official" ]; then
+  echo "  ✅ ralph-loop (pulling latest)"
+  git -C "$PLUGINS_DIR/claude-plugins-official" pull --ff-only 2>/dev/null || true
+else
+  echo "  📥 Installing ralph-loop..."
+  git clone https://github.com/claude-plugins-official/ralph-loop.git "$PLUGINS_DIR/claude-plugins-official" 2>/dev/null \
+    && echo "  ✅ ralph-loop installed" \
+    || echo "  ⚠️  ralph-loop clone failed"
 fi
 
 # ─── 11. Clean stale worktrees ────────────────────────────
