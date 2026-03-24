@@ -151,12 +151,8 @@ fi
 
 mkdir -p "$HOME/.claude/rules"
 
-# Global CLAUDE.md (backup existing before overwriting)
+# Global CLAUDE.md (repo is source of truth — always overwrite)
 if [ -f "$SKILLS_REPO/config/global-claude.md" ]; then
-  if [ -f "$HOME/.claude/CLAUDE.md" ]; then
-    cp "$HOME/.claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md.backup"
-    echo "  📋 Existing CLAUDE.md backed up to CLAUDE.md.backup"
-  fi
   cp "$SKILLS_REPO/config/global-claude.md" "$HOME/.claude/CLAUDE.md"
   echo "✅ Global CLAUDE.md installed"
 else
