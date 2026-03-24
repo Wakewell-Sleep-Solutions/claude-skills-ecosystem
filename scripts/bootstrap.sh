@@ -165,7 +165,18 @@ if [ -d "$SKILLS_REPO/config/rules" ]; then
   echo "✅ Global rules installed"
 fi
 
-# ─── 9. Clean stale worktrees ─────────────────────────────
+# ─── 9. Claude plugins ────────────────────────────────────
+if command -v claude >/dev/null 2>&1; then
+  # claude-mem (cross-session memory)
+  claude plugin list 2>/dev/null | grep -q "claude-mem" && echo "  ✅ claude-mem" \
+    || { echo "  📥 Installing claude-mem..."; claude install-plugin thedotmack/claude-mem 2>/dev/null || true; }
+
+  # ralph-loop (autonomous iteration)
+  claude plugin list 2>/dev/null | grep -q "ralph-loop" && echo "  ✅ ralph-loop" \
+    || { echo "  📥 Installing ralph-loop..."; claude install-plugin claude-plugins-official/ralph-loop 2>/dev/null || true; }
+fi
+
+# ─── 10. Clean stale worktrees ────────────────────────────
 for d in "$PROJECTS"/Claude "$PROJECTS"/super-rcm "$PROJECTS"/5dsmiles-landing "$PROJECTS"/WakewellWeb "$PROJECTS"/claude-skills-ecosystem; do
   [ -d "$d/.git" ] && git -C "$d" worktree prune 2>/dev/null
 done

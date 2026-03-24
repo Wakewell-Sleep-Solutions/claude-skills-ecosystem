@@ -95,6 +95,16 @@ ls ~/.claude/skills/gstack/SKILL.md 2>/dev/null && echo "gstack: OK" || claude i
 
 Q Stack and all org skills load automatically from the repo's `.claude/skills/` directory.
 
+### Plugins — install if missing
+
+```bash
+# claude-mem (cross-session memory)
+claude plugin list 2>/dev/null | grep -q "claude-mem" || claude install-plugin thedotmack/claude-mem 2>/dev/null || true
+
+# ralph-loop (autonomous iteration)
+claude plugin list 2>/dev/null | grep -q "ralph-loop" || claude install-plugin claude-plugins-official/ralph-loop 2>/dev/null || true
+```
+
 ### Global CLAUDE.md — sync from skills repo
 
 ```bash
