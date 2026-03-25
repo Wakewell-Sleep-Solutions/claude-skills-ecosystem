@@ -97,16 +97,16 @@ if command -v infisical >/dev/null 2>&1; then
     echo "  ✅ Infisical: already authenticated"
   else
     echo ""
-    echo "Log in to Infisical (this opens a browser window):"
-    echo "Type 'skip' to set up later."
-    read -p "Press Enter to log in (or type 'skip'): " INFISICAL_CHOICE
-    if [ "$INFISICAL_CHOICE" != "skip" ]; then
-      infisical login
-      if [ $? -ne 0 ]; then
-        echo "  ⚠️  Login failed — try 'infisical login -i' for interactive mode"
-      fi
-    else
-      echo "  ⏭️  Skipped — run 'infisical login' when ready"
+    echo "========================================="
+    echo "  Log in to Infisical now."
+    echo "  This opens a browser window."
+    echo "========================================="
+    echo ""
+    infisical login
+    if [ $? -ne 0 ]; then
+      echo ""
+      echo "  ⚠️  Login failed. Try manually: infisical login"
+      echo "  Bootstrap will continue, but secrets won't work until you log in."
     fi
   fi
 
