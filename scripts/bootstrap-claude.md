@@ -100,12 +100,21 @@ gh repo list Wakewell-Sleep-Solutions --limit 50 --json name -q '.[].name' 2>/de
 done
 ```
 
-## Step 5: Read org context
+## Step 5: Read org context from Company Brain
 
-Read these files (skip any that don't exist — don't error):
-1. `./CLAUDE.md` (current project rules)
-2. `~/Documents/Claude/CLAUDE.md` (org hub rules — skip if same as #1)
-3. `~/Documents/Claude/docs/SETUP-GUIDE.md` sections 3-5 only (business, systems, connections)
+The Company Brain vault (`~/Documents/company-brain/`) is the single source of truth for all org context.
+
+1. Read `~/Documents/company-brain/CLAUDE.md` (context router — tells you what to load)
+2. Read `./CLAUDE.md` (current project rules)
+3. Based on the current working directory, load the relevant project files from Company Brain:
+   - Working in `~/Documents/Claude/` → read `company-brain/projects/aria/overview.md`
+   - Working in `~/Documents/super-rcm/` → read `company-brain/projects/super-rcm/overview.md` + `company-brain/systems/data-flows.md`
+   - Working in `~/Documents/5dsmiles-landing/` → read `company-brain/projects/dashboard/overview.md`
+   - Working in `~/Documents/WakewellWeb/` → read `company-brain/projects/wakewell/overview.md`
+   - Working in `~/Documents/claude-skills-ecosystem/` → read `company-brain/projects/skills/overview.md`
+   - WordPress/5dsmiles.com work → read `company-brain/projects/5dsmiles/overview.md`
+4. Always load `company-brain/org/entities.md` + `company-brain/lessons/feedback.md` (applies to all work)
+5. For HIPAA-sensitive work → also load `company-brain/operations/compliance.md` + `company-brain/systems/data-flows.md`
 
 ## Step 6: What changed recently
 
