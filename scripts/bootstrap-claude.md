@@ -49,15 +49,19 @@ claude mcp add kapture -- npx -y kapture-mcp@latest bridge
 
 Then STOP. MCP servers can't be added mid-session.
 
-## Step 3: Check Infisical auth
+## Step 3: Check auth (Infisical + Azure)
 
 ```bash
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-infisical secrets --env=prod --path=/shared --silent 2>/dev/null | grep -c "│" || echo "0"
+# Infisical — exit-code based (no fragile pipe parsing)
+infisical secrets --env=prod --path=/shared --silent >/dev/null 2>&1 && echo "infisical:OK" || echo "infisical:NOT_AUTHED"
+# Azure — verify logged in, not just installed
+az account show --query name -o tsv 2>/dev/null && echo "az:OK" || echo "az:NOT_LOGGED_IN"
 ```
 
-If count is 0 or errors: tell user "Infisical isn't connected. Run `infisical login` in Terminal (opens browser for SSO)."
-If count > 0: say nothing (it's working).
+If infisical NOT_AUTHED: tell user "Infisical isn't connected. Run `infisical login` in Terminal (opens browser for SSO)."
+If az NOT_LOGGED_IN: tell user "Azure CLI isn't authenticated. Run `az login` in Terminal."
+If both OK: say nothing.
 
 ## Step 4: Sync repos (skip in worktrees)
 
@@ -70,17 +74,19 @@ MAIN_ROOT=$(git -C "$WORKTREE_ROOT" rev-parse --path-format=absolute --git-commo
 
 If IN_WORKTREE: skip this step entirely.
 
-If MAIN_REPO and gh is available:
+If MAIN_REPO: only pull the **current project** (fast, no latency from scanning all repos):
 ```bash
-# Pull all org repos that exist locally
-for d in ~/Documents/*/; do
-  [ -d "$d/.git" ] || continue
-  REMOTE=$(git -C "$d" remote get-url origin 2>/dev/null || true)
+# Pull current project only
+CWD=$(pwd)
+if [ -d "$CWD/.git" ]; then
+  REMOTE=$(git -C "$CWD" remote get-url origin 2>/dev/null || true)
   if echo "$REMOTE" | grep -qi "Wakewell-Sleep-Solutions"; then
-    echo "Pulling: $(basename $d)"
-    git -C "$d" pull --ff-only 2>/dev/null || echo "  skip (local changes)"
+    echo "Pulling: $(basename $CWD)"
+    git -C "$CWD" pull --ff-only 2>/dev/null || echo "  skip (local changes)"
   fi
-done
+fi
+# Also pull company-brain (needed for Step 6)
+[ -d ~/Documents/company-brain/.git ] && git -C ~/Documents/company-brain pull --ff-only 2>/dev/null
 ```
 
 ## Step 5: Verify code analysis stack
@@ -116,7 +122,8 @@ The Company Brain vault (`~/Documents/company-brain/`) is the single source of t
 
 1. Read `~/Documents/company-brain/CLAUDE.md` (context router — tells you what to load)
 2. Read `./CLAUDE.md` (current project rules)
-3. Based on the current working directory, load the relevant project files from Company Brain:
+3. Based on the current working directory, load the relevant project files from Company Brain.
+   **Skip any file that doesn't exist** — the vault grows over time, not all projects have entries yet.
    - `~/Documents/Claude/` → `company-brain/projects/aria/overview.md`
    - `~/Documents/super-rcm/` → `company-brain/projects/super-rcm/overview.md` + `company-brain/systems/data-flows.md`
    - `~/Documents/5dsmiles-landing/` → `company-brain/projects/dashboard/overview.md`
@@ -126,15 +133,16 @@ The Company Brain vault (`~/Documents/company-brain/`) is the single source of t
    - `~/Documents/wakewell-b2b-dashboard/` → `company-brain/projects/wakewell/overview.md` (B2B subsystem)
    - `~/Documents/sleep_test_scheduler/` → `company-brain/projects/wakewell/overview.md` (scheduling subsystem)
    - WordPress/5dsmiles.com → `company-brain/projects/5dsmiles/overview.md`
-4. Always load `company-brain/org/entities.md` + `company-brain/lessons/feedback.md` (applies to all work)
+4. Always load (if they exist): `company-brain/org/entities.md` + `company-brain/lessons/feedback.md`
 5. For HIPAA-sensitive work → also load `company-brain/operations/compliance.md` + `company-brain/systems/data-flows.md`
 
 ## Step 7: What changed recently
 
 ```bash
+# Use 3 days to cover weekends (Fri 5pm → Mon 9am)
 for d in ~/Documents/*/; do
   if [ -d "$d/.git" ]; then
-    CHANGES=$(git -C "$d" log --oneline --since="24 hours ago" 2>/dev/null | head -5)
+    CHANGES=$(git -C "$d" log --oneline --since="3 days ago" 2>/dev/null | head -5)
     if [ -n "$CHANGES" ]; then
       echo "=== $(basename $d) ==="
       echo "$CHANGES"
@@ -143,7 +151,7 @@ for d in ~/Documents/*/; do
 done
 ```
 
-Summarize briefly: "Since last session, [repo] had [N] commits: [what changed]."
+Summarize briefly: "Recently, [repo] had [N] commits: [what changed]."
 No changes? Say nothing.
 
 ## Step 8: Project picker
