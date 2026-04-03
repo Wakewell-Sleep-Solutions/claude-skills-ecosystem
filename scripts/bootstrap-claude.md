@@ -9,11 +9,9 @@ Run these two checks:
 [[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 # Required — blocks bootstrap if missing
 echo "REQUIRED gh:$(command -v gh >/dev/null 2>&1 && echo OK || echo MISSING) node:$(command -v node >/dev/null 2>&1 && echo OK || echo MISSING) infisical:$(command -v infisical >/dev/null 2>&1 && echo OK || echo MISSING)"
-# Optional — warn but continue if missing (audit pipeline only)
 # Optional — warn but continue if missing (audit pipeline + tooling)
-echo "OPTIONAL ruflo:$(command -v ruflo >/dev/null 2>&1 && echo OK || echo MISSING) az:$(command -v az >/dev/null 2>&1 && echo OK || echo MISSING) semgrep:$(command -v semgrep >/dev/null 2>&1 && echo OK || echo MISSING) snyk:$(command -v snyk >/dev/null 2>&1 && echo OK || echo MISSING) sonar-scanner:$(command -v sonar-scanner >/dev/null 2>&1 && echo OK || echo MISSING)"
-# ESLint/tsc — check local (npx) first, fall back to global
-echo "OPTIONAL eslint:$(npx eslint --version 2>/dev/null || command -v eslint >/dev/null 2>&1 && echo OK || echo MISSING) tsc:$(npx tsc --version 2>/dev/null || command -v tsc >/dev/null 2>&1 && echo OK || echo MISSING)"
+echo "OPTIONAL ruflo:$(command -v ruflo >/dev/null 2>&1 && echo OK || echo MISSING) az:$(command -v az >/dev/null 2>&1 && echo OK || echo MISSING)"
+# Audit tools (semgrep, snyk, eslint, tsc, sonar-scanner) are checked in Step 5 — not here
 ```
 
 **If any REQUIRED tool is MISSING** → STOP. Tell the user:
@@ -47,6 +45,8 @@ claude mcp list 2>/dev/null
 |--------|---------|---------|
 | **claude-flow** | `npx -y @claude-flow/cli@latest mcp start` | Multi-agent swarm orchestration |
 | **kapture** | `npx -y kapture-mcp@latest bridge` | Browser automation |
+
+Note: GitHub MCP is not required — the `gh` CLI covers PRs, issues, and API calls natively.
 
 If any **required** server is MISSING or FAILED, tell the user which ones and provide the add commands:
 ```bash
@@ -117,7 +117,7 @@ echo "semgrep:$(semgrep --version 2>/dev/null || echo MISSING)"
 echo "snyk:$(snyk --version 2>/dev/null || echo MISSING)"
 echo "eslint:$(npx eslint --version 2>/dev/null || eslint --version 2>/dev/null || echo MISSING)"
 echo "tsc:$(npx tsc --version 2>/dev/null || tsc --version 2>/dev/null || echo MISSING)"
-echo "sonar:$(sonar-scanner --version 2>&1 | grep CLI | awk '{print $NF}' || echo MISSING)"
+echo "sonar:$(command -v sonar-scanner >/dev/null 2>&1 && echo OK || echo MISSING)"
 ```
 
 **Closed-loop stack:**
@@ -150,7 +150,12 @@ The Company Brain vault (`~/Documents/company-brain/`) is the single source of t
    - `~/Documents/sleep_test_scheduler/` → `company-brain/projects/wakewell/overview.md` (scheduling subsystem)
    - WordPress/5dsmiles.com → `company-brain/projects/5dsmiles/overview.md`
 4. Always load (if they exist): `company-brain/org/entities.md` + `company-brain/lessons/feedback.md`
-5. For HIPAA-sensitive work → also load `company-brain/operations/compliance.md` + `company-brain/systems/data-flows.md`
+5. Scan recent decisions (if any exist):
+   ```bash
+   ls -t ~/Documents/company-brain/decisions/*.md 2>/dev/null | head -5
+   ```
+   Read any decisions relevant to your current project. These override default patterns.
+6. For HIPAA-sensitive work → also load `company-brain/operations/compliance.md` + `company-brain/systems/data-flows.md`
 
 ## Step 7: What changed recently
 
