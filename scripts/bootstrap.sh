@@ -15,6 +15,9 @@ echo ""
 PROJECTS="$HOME/Documents"
 SKILLS_REPO="$PROJECTS/claude-skills-ecosystem"
 
+# ─── 0. Source nvm if present (node/npm/npx managed by nvm) ──
+[ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
+
 # ─── 1. Homebrew ───────────────────────────────────────────
 # Check every known install location before attempting install
 if command -v brew >/dev/null 2>&1; then

@@ -4,8 +4,11 @@ Read this file and follow these steps. You are reading context and asking questi
 
 ## Step 1: Check tools are installed
 
-Run these two checks:
+Run these checks:
 ```bash
+# Source nvm if present (many machines use nvm for node/npm/npx)
+[ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
+# macOS Homebrew paths
 [[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 # Required — blocks bootstrap if missing
 echo "REQUIRED gh:$(command -v gh >/dev/null 2>&1 && echo OK || echo MISSING) node:$(command -v node >/dev/null 2>&1 && echo OK || echo MISSING) infisical:$(command -v infisical >/dev/null 2>&1 && echo OK || echo MISSING)"
@@ -26,6 +29,7 @@ Continue to Step 2.
 ## Step 2: Check MCP servers
 
 ```bash
+[ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
 [[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 claude mcp list 2>/dev/null
 ```
@@ -66,6 +70,7 @@ If only **optional** servers are missing, warn and continue.
 ## Step 3: Check auth (Infisical + Azure)
 
 ```bash
+[ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
 [[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 # Infisical — exit-code based (no fragile pipe parsing)
 infisical secrets --env=prod --path=/shared --silent >/dev/null 2>&1 && echo "infisical:OK" || echo "infisical:NOT_AUTHED"
@@ -98,6 +103,8 @@ if [ -d "$CWD/.git" ]; then
     echo "Pulling: $(basename $CWD)"
     git -C "$CWD" pull --ff-only 2>/dev/null || echo "  skip (local changes)"
   fi
+else
+  echo "Not in a git repo — skipping project sync. cd into a project first, or pull manually."
 fi
 # Also pull company-brain (needed for Step 6) and skills ecosystem (this bootstrap)
 [ -d ~/Documents/company-brain/.git ] && git -C ~/Documents/company-brain pull --ff-only 2>/dev/null
@@ -109,6 +116,7 @@ fi
 The closed-loop code analysis system runs automatically via PostToolUse hooks. Verify it's operational:
 
 ```bash
+[ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
 [[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 echo "analyzer:$([ -x ~/Documents/scripts/code-analyzer.sh ] && echo OK || echo MISSING)"
 echo "hook:$([ -x ~/Documents/scripts/claude-hook-analyze.sh ] && echo OK || echo MISSING)"
