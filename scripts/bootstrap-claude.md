@@ -4,19 +4,23 @@ Read this file and follow these steps. You are reading context and asking questi
 
 ## Step 1: Check tools are installed
 
-Run this single command:
+Run these two checks:
 ```bash
 [[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-echo "gh:$(command -v gh >/dev/null 2>&1 && echo OK || echo MISSING) ruflo:$(command -v ruflo >/dev/null 2>&1 && echo OK || echo MISSING) infisical:$(command -v infisical >/dev/null 2>&1 && echo OK || echo MISSING) node:$(command -v node >/dev/null 2>&1 && echo OK || echo MISSING) az:$(command -v az >/dev/null 2>&1 && echo OK || echo MISSING) semgrep:$(command -v semgrep >/dev/null 2>&1 && echo OK || echo MISSING) snyk:$(command -v snyk >/dev/null 2>&1 && echo OK || echo MISSING) eslint:$(command -v eslint >/dev/null 2>&1 && echo OK || echo MISSING) sonar-scanner:$(command -v sonar-scanner >/dev/null 2>&1 && echo OK || echo MISSING)"
+# Required — blocks bootstrap if missing
+echo "REQUIRED gh:$(command -v gh >/dev/null 2>&1 && echo OK || echo MISSING) node:$(command -v node >/dev/null 2>&1 && echo OK || echo MISSING) infisical:$(command -v infisical >/dev/null 2>&1 && echo OK || echo MISSING)"
+# Optional — warn but continue if missing (audit pipeline only)
+echo "OPTIONAL ruflo:$(command -v ruflo >/dev/null 2>&1 && echo OK || echo MISSING) az:$(command -v az >/dev/null 2>&1 && echo OK || echo MISSING) semgrep:$(command -v semgrep >/dev/null 2>&1 && echo OK || echo MISSING) snyk:$(command -v snyk >/dev/null 2>&1 && echo OK || echo MISSING) eslint:$(command -v eslint >/dev/null 2>&1 && echo OK || echo MISSING) sonar-scanner:$(command -v sonar-scanner >/dev/null 2>&1 && echo OK || echo MISSING)"
 ```
 
-If ANYTHING is MISSING, tell the user:
-> "Some tools aren't installed. Run this in Terminal first, then start a new Claude session:"
+**If any REQUIRED tool is MISSING** → STOP. Tell the user:
+> "Core tools missing. Run this in Terminal first, then start a new Claude session:"
 > `bash ~/Documents/claude-skills-ecosystem/scripts/bootstrap.sh`
 
-Then STOP. Don't continue the bootstrap — the human bootstrap needs to run first.
+**If only OPTIONAL tools are MISSING** → warn and continue:
+> "Note: [tool names] not installed. The closed-loop audit pipeline (Waves 1-3) won't run. Install later with `bash ~/Documents/claude-skills-ecosystem/scripts/bootstrap.sh`"
 
-If everything is OK, continue.
+Continue to Step 2.
 
 ## Step 2: Check MCP servers
 
