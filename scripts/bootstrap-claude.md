@@ -6,7 +6,7 @@ Read this file and follow these steps. You are reading context and asking questi
 
 Run this single command:
 ```bash
-export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+[[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 echo "gh:$(command -v gh >/dev/null 2>&1 && echo OK || echo MISSING) ruflo:$(command -v ruflo >/dev/null 2>&1 && echo OK || echo MISSING) infisical:$(command -v infisical >/dev/null 2>&1 && echo OK || echo MISSING) node:$(command -v node >/dev/null 2>&1 && echo OK || echo MISSING) az:$(command -v az >/dev/null 2>&1 && echo OK || echo MISSING) semgrep:$(command -v semgrep >/dev/null 2>&1 && echo OK || echo MISSING) snyk:$(command -v snyk >/dev/null 2>&1 && echo OK || echo MISSING) eslint:$(command -v eslint >/dev/null 2>&1 && echo OK || echo MISSING) sonar-scanner:$(command -v sonar-scanner >/dev/null 2>&1 && echo OK || echo MISSING)"
 ```
 
@@ -21,7 +21,7 @@ If everything is OK, continue.
 ## Step 2: Check MCP servers
 
 ```bash
-export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+[[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 claude mcp list 2>/dev/null
 ```
 
@@ -52,7 +52,7 @@ Then STOP. MCP servers can't be added mid-session.
 ## Step 3: Check auth (Infisical + Azure)
 
 ```bash
-export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+[[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 # Infisical — exit-code based (no fragile pipe parsing)
 infisical secrets --env=prod --path=/shared --silent >/dev/null 2>&1 && echo "infisical:OK" || echo "infisical:NOT_AUTHED"
 # Azure — verify logged in, not just installed
@@ -94,7 +94,7 @@ fi
 The closed-loop code analysis system runs automatically via PostToolUse hooks. Verify it's operational:
 
 ```bash
-export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+[[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 echo "analyzer:$([ -x ~/Documents/scripts/code-analyzer.sh ] && echo OK || echo MISSING)"
 echo "hook:$([ -x ~/Documents/scripts/claude-hook-analyze.sh ] && echo OK || echo MISSING)"
 echo "hook-active:$(grep -q 'claude-hook-analyze' ~/.claude/settings.json 2>/dev/null && echo OK || echo MISSING)"
