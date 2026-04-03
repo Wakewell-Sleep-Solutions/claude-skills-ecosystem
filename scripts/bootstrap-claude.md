@@ -7,7 +7,7 @@ Read this file and follow these steps. You are reading context and asking questi
 Run this single command:
 ```bash
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-echo "gh:$(command -v gh >/dev/null 2>&1 && echo OK || echo MISSING) ruflo:$(command -v ruflo >/dev/null 2>&1 && echo OK || echo MISSING) infisical:$(command -v infisical >/dev/null 2>&1 && echo OK || echo MISSING) node:$(command -v node >/dev/null 2>&1 && echo OK || echo MISSING) semgrep:$(command -v semgrep >/dev/null 2>&1 && echo OK || echo MISSING) snyk:$(command -v snyk >/dev/null 2>&1 && echo OK || echo MISSING) eslint:$(command -v eslint >/dev/null 2>&1 && echo OK || echo MISSING) sonar-scanner:$(command -v sonar-scanner >/dev/null 2>&1 && echo OK || echo MISSING)"
+echo "gh:$(command -v gh >/dev/null 2>&1 && echo OK || echo MISSING) ruflo:$(command -v ruflo >/dev/null 2>&1 && echo OK || echo MISSING) infisical:$(command -v infisical >/dev/null 2>&1 && echo OK || echo MISSING) node:$(command -v node >/dev/null 2>&1 && echo OK || echo MISSING) az:$(command -v az >/dev/null 2>&1 && echo OK || echo MISSING) semgrep:$(command -v semgrep >/dev/null 2>&1 && echo OK || echo MISSING) snyk:$(command -v snyk >/dev/null 2>&1 && echo OK || echo MISSING) eslint:$(command -v eslint >/dev/null 2>&1 && echo OK || echo MISSING) sonar-scanner:$(command -v sonar-scanner >/dev/null 2>&1 && echo OK || echo MISSING)"
 ```
 
 If ANYTHING is MISSING, tell the user:
@@ -22,56 +22,41 @@ If everything is OK, continue.
 
 ```bash
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-claude mcp list 2>/dev/null | grep -E "ruflo|context7|vanta|obsidian|claude-flow|kapture" || echo "MCP_MISSING"
+claude mcp list 2>/dev/null
 ```
 
-Expected MCP servers (all 6 must be connected):
-- **ruflo** — workflow automation
-- **context7** — up-to-date library/framework docs
-- **vanta** — SOC 2 / HIPAA compliance (via `~/Documents/scripts/vanta-mcp-wrapper.sh`)
-- **obsidian** — company brain vault
-- **claude-flow** — multi-agent swarm orchestration
-- **kapture** — browser automation
+**Required MCP servers (all 6 must show ✓ Connected):**
 
-If ANY are MISSING, tell the user which ones and provide the add commands:
-> `claude mcp add ruflo -s user -- ruflo mcp start`
-> `claude mcp add context7 -- npx -y @upstash/context7-mcp@latest`
-> `claude mcp add vanta -s user -- bash ~/Documents/scripts/vanta-mcp-wrapper.sh`
-> `claude mcp add obsidian -- npx -y @bitbonsai/mcpvault@latest ~/Documents/company-brain`
-> `claude mcp add claude-flow -- npx -y @claude-flow/cli@latest mcp start`
-> `claude mcp add kapture -- npx -y kapture-mcp@latest bridge`
+| Server | Command | Purpose |
+|--------|---------|---------|
+| **ruflo** | `ruflo mcp start` | Workflow automation |
+| **context7** | `npx -y @upstash/context7-mcp@latest` | Up-to-date library/framework docs |
+| **vanta** | `bash ~/Documents/scripts/vanta-mcp-wrapper.sh` | SOC 2 / HIPAA compliance (1200+ tests) |
+| **obsidian** | `npx -y @bitbonsai/mcpvault@latest ~/Documents/company-brain` | Company brain vault |
+| **claude-flow** | `npx -y @claude-flow/cli@latest mcp start` | Multi-agent swarm orchestration |
+| **kapture** | `npx -y kapture-mcp@latest bridge` | Browser automation |
+
+If ANY are MISSING or FAILED, tell the user which ones and provide the add commands:
+```bash
+claude mcp add ruflo -s user -- ruflo mcp start
+claude mcp add context7 -- npx -y @upstash/context7-mcp@latest
+claude mcp add vanta -s user -- bash ~/Documents/scripts/vanta-mcp-wrapper.sh
+claude mcp add obsidian -- npx -y @bitbonsai/mcpvault@latest ~/Documents/company-brain
+claude mcp add claude-flow -- npx -y @claude-flow/cli@latest mcp start
+claude mcp add kapture -- npx -y kapture-mcp@latest bridge
+```
 > "Then restart Claude."
 
 Then STOP. MCP servers can't be added mid-session.
 
-## Step 3: Check skills and plugins
+## Step 3: Check Infisical auth
 
 ```bash
-echo "gstack:$([ -d ~/.claude/skills/gstack ] && echo OK || echo MISSING)"
-echo "claude-mem:$([ -d ~/.claude/plugins/marketplaces/thedotmack ] && echo OK || echo MISSING)"
-echo "ralph-loop:$([ -d ~/.claude/plugins/marketplaces/claude-plugins-official ] && echo OK || echo MISSING)"
-```
-
-If ANY are MISSING, you are inside a Claude session so use the interactive install commands:
-
-- gstack missing → tell user: "I need to install gstack. Type: `/install-skill garrytan/gstack`"
-- claude-mem missing → tell user: "I need to install claude-mem. Type: `/install-plugin thedotmack/claude-mem`"
-- ralph-loop missing → tell user: "I need to install ralph-loop. Type: `/install-plugin claude-plugins-official/ralph-loop`"
-
-Wait for user to run each one. If they fail, fall back to git clone:
-```bash
-git clone https://github.com/Wakewell-Sleep-Solutions/claude-skills-ecosystem.git ~/.claude/skills 2>/dev/null
-git clone https://github.com/thedotmack/claude-mem.git ~/.claude/plugins/marketplaces/thedotmack 2>/dev/null
-git clone https://github.com/claude-plugins-official/ralph-loop.git ~/.claude/plugins/marketplaces/claude-plugins-official 2>/dev/null
-```
-
-## Step 3b: Verify Infisical secrets
-
-```bash
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 infisical secrets --env=prod --path=/shared --silent 2>/dev/null | grep -c "│" || echo "0"
 ```
 
-If count is 0 or errors: tell user "Infisical isn't connected. Run `infisical login` in Terminal."
+If count is 0 or errors: tell user "Infisical isn't connected. Run `infisical login` in Terminal (opens browser for SSO)."
 If count > 0: say nothing (it's working).
 
 ## Step 4: Sync repos (skip in worktrees)
@@ -96,20 +81,6 @@ for d in ~/Documents/*/; do
     git -C "$d" pull --ff-only 2>/dev/null || echo "  skip (local changes)"
   fi
 done
-
-# Clone any new org repos
-gh repo list Wakewell-Sleep-Solutions --limit 50 --json name -q '.[].name' 2>/dev/null | while read repo; do
-  FOUND=false
-  for d in ~/Documents/*/; do
-    REMOTE=$(git -C "$d" remote get-url origin 2>/dev/null || true)
-    echo "$REMOTE" | grep -qi "$repo" && FOUND=true && break
-  done
-  if [ "$FOUND" = "false" ]; then
-    TARGET=~/Documents/"$repo"
-    [ "$repo" = "aria-slack-bot" ] && TARGET=~/Documents/Claude
-    [ ! -d "$TARGET" ] && gh repo clone "Wakewell-Sleep-Solutions/$repo" "$TARGET" 2>/dev/null && echo "Cloned: $(basename $TARGET)" || true
-  fi
-done
 ```
 
 ## Step 5: Verify code analysis stack
@@ -120,22 +91,24 @@ The closed-loop code analysis system runs automatically via PostToolUse hooks. V
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 echo "analyzer:$([ -x ~/Documents/scripts/code-analyzer.sh ] && echo OK || echo MISSING)"
 echo "hook:$([ -x ~/Documents/scripts/claude-hook-analyze.sh ] && echo OK || echo MISSING)"
+echo "hook-active:$(grep -q 'claude-hook-analyze' ~/.claude/settings.json 2>/dev/null && echo OK || echo MISSING)"
 echo "semgrep:$(semgrep --version 2>/dev/null || echo MISSING)"
 echo "snyk:$(snyk --version 2>/dev/null || echo MISSING)"
 echo "eslint:$(eslint --version 2>/dev/null || echo MISSING)"
 echo "sonar:$(sonar-scanner --version 2>&1 | grep CLI | awk '{print $NF}' || echo MISSING)"
 ```
 
-**Stack summary (all should be installed):**
-- **ESLint + TypeScript** — every edit (PostToolUse hook)
-- **Semgrep** — every edit (OWASP, secrets, HIPAA)
-- **Snyk** — dependency + code vuln scanning
-- **SonarCloud** — deep analysis, org: `everestsleep`
-- **Vanta MCP** — SOC 2 / HIPAA compliance controls
+**Closed-loop stack:**
+| Tool | Trigger | What it catches |
+|------|---------|-----------------|
+| ESLint + TypeScript | Every edit (PostToolUse hook) | Code quality, type errors |
+| Semgrep | Every edit (PostToolUse hook) | OWASP Top 10, secrets, HIPAA |
+| Snyk | Manual / pre-commit | Dependency CVEs, code vulns |
+| SonarCloud (org: `everestsleep`) | `irun code-analyzer.sh --tier 3` | Code smells, complexity, duplication |
+| Vanta MCP | Always connected | SOC 2 / HIPAA compliance controls |
 
-If MISSING: `brew install semgrep sonar-scanner && npm install -g snyk eslint typescript`
-
-**Full scan command:** `irun bash ~/Documents/scripts/code-analyzer.sh --all <project-dir>`
+If hook-active is MISSING: warn user that the analyzer won't fire automatically.
+If any tool is MISSING: `brew install semgrep sonar-scanner && npm install -g snyk eslint typescript`
 
 ## Step 6: Read org context from Company Brain
 
@@ -144,12 +117,15 @@ The Company Brain vault (`~/Documents/company-brain/`) is the single source of t
 1. Read `~/Documents/company-brain/CLAUDE.md` (context router — tells you what to load)
 2. Read `./CLAUDE.md` (current project rules)
 3. Based on the current working directory, load the relevant project files from Company Brain:
-   - Working in `~/Documents/Claude/` → read `company-brain/projects/aria/overview.md`
-   - Working in `~/Documents/super-rcm/` → read `company-brain/projects/super-rcm/overview.md` + `company-brain/systems/data-flows.md`
-   - Working in `~/Documents/5dsmiles-landing/` → read `company-brain/projects/dashboard/overview.md`
-   - Working in `~/Documents/WakewellWeb/` → read `company-brain/projects/wakewell/overview.md`
-   - Working in `~/Documents/claude-skills-ecosystem/` → read `company-brain/projects/skills/overview.md`
-   - WordPress/5dsmiles.com work → read `company-brain/projects/5dsmiles/overview.md`
+   - `~/Documents/Claude/` → `company-brain/projects/aria/overview.md`
+   - `~/Documents/super-rcm/` → `company-brain/projects/super-rcm/overview.md` + `company-brain/systems/data-flows.md`
+   - `~/Documents/5dsmiles-landing/` → `company-brain/projects/dashboard/overview.md`
+   - `~/Documents/WakewellWeb/` → `company-brain/projects/wakewell/overview.md`
+   - `~/Documents/claude-skills-ecosystem/` → `company-brain/projects/skills/overview.md`
+   - `~/Documents/ClaimMDGHL-Sync-Machine/` → `company-brain/projects/wakewell/overview.md` (claims subsystem)
+   - `~/Documents/wakewell-b2b-dashboard/` → `company-brain/projects/wakewell/overview.md` (B2B subsystem)
+   - `~/Documents/sleep_test_scheduler/` → `company-brain/projects/wakewell/overview.md` (scheduling subsystem)
+   - WordPress/5dsmiles.com → `company-brain/projects/5dsmiles/overview.md`
 4. Always load `company-brain/org/entities.md` + `company-brain/lessons/feedback.md` (applies to all work)
 5. For HIPAA-sensitive work → also load `company-brain/operations/compliance.md` + `company-brain/systems/data-flows.md`
 
@@ -170,27 +146,30 @@ done
 Summarize briefly: "Since last session, [repo] had [N] commits: [what changed]."
 No changes? Say nothing.
 
-## Step 8: Ask two questions
+## Step 8: Project picker
 
-**Question 1:** "What's your experience level? (1) Expert (2) Intermediate (3) Learning"
-- **Expert**: No guardrails. Execute directly.
-- **Intermediate**: Confirm before destructive actions.
-- **Learning**: Explain everything, confirm before changes.
+Dr. Qiu is always Expert mode — skip the experience level question. Execute directly, no guardrails.
 
-**Question 2:** If not obvious from the working directory, show the project picker:
+If not obvious from the working directory, show the project picker:
 
 | Project | Directory | What it is |
 |---------|-----------|------------|
 | Aria (org hub) | `~/Documents/Claude/` | Slack bot, org hub, n8n workflows |
 | Super RCM | `~/Documents/super-rcm/` | Central data server, Open Dental sync |
-| 5D Smiles Dashboard | `~/Documents/5dsmiles-landing/` | Practice analytics dashboard |
+| 5D Smiles Dashboard | `~/Documents/5dsmiles-landing/` | Practice analytics, 67 API routes |
 | WakeWell Website | `~/Documents/WakewellWeb/` | WakeWell public website (Azure) |
 | Claims Bridge | `~/Documents/ClaimMDGHL-Sync-Machine/` | ClaimMD API, eligibility, claims |
 | B2B Dashboard | `~/Documents/wakewell-b2b-dashboard/` | Physician outreach, Lemlist, fax |
 | Sleep Scheduler | `~/Documents/sleep_test_scheduler/` | HST booking, Stripe, GHL pipeline |
 | Pegasus | `~/Documents/Pegasus/` | App with lint + test |
-| Skills | `~/Documents/claude-skills-ecosystem/` | Shared skills, bootstrap, config |
+| Skills | `~/Documents/claude-skills-ecosystem/` | 85+ portable Claude Code skills |
 
 ## Step 9: Begin
 
 Read the selected project's CLAUDE.md. Start working.
+
+**Quick reference:**
+- Full scan: `irun bash ~/Documents/scripts/code-analyzer.sh --all <project>`
+- Security only: `bash ~/Documents/scripts/code-analyzer.sh --tier 2 <project>`
+- Cloud: Azure exclusively (`az` CLI). Never AWS/GCP.
+- Secrets: Infisical (local dev) + Azure Key Vault (production). Never `.env` files.

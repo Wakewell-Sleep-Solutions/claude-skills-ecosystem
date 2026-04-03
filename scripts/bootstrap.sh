@@ -44,12 +44,16 @@ fi
 # ─── 2. Core tools ────────────────────────────────────────
 echo ""
 echo "Core tools:"
-for tool in git node gh tmux; do
+for tool in git node gh tmux az; do
   if command -v "$tool" >/dev/null 2>&1; then
     echo "  ✅ $tool"
   else
     echo "  📥 Installing $tool..."
-    brew install "$tool"
+    if [ "$tool" = "az" ]; then
+      brew install azure-cli
+    else
+      brew install "$tool"
+    fi
   fi
 done
 
@@ -178,17 +182,10 @@ if command -v infisical >/dev/null 2>&1; then
     echo "  ✅ Infisical: already authenticated"
   else
     echo ""
-    echo "========================================="
-    echo "  Log in to Infisical now."
-    echo "  This opens a browser window."
-    echo "========================================="
-    echo ""
-    infisical login
-    if [ $? -ne 0 ]; then
-      echo ""
-      echo "  ⚠️  Login failed. Try manually: infisical login"
-      echo "  Bootstrap will continue, but secrets won't work until you log in."
-    fi
+    echo "  ⚠️  Infisical not authenticated. Run manually in Terminal:"
+    echo "     infisical login"
+    echo "  (Opens browser for SSO login — select Infisical Cloud US)"
+    echo "  Bootstrap will continue, but secrets won't work until you log in."
   fi
 
   # Verify secrets (count only — NEVER show values)
@@ -220,11 +217,20 @@ find "$PROJECTS" -maxdepth 2 -name ".git" -type d 2>/dev/null | while read gitdi
   fi
 done
 
+# Dead/duplicate repos — skip these during clone
+SKIP_REPOS="WakewellRailway ODGHLSync opendentalsynctool SmartCoach salescoach"
+
 # Get list of all org repos from GitHub
 REPO_LIST=$(gh repo list Wakewell-Sleep-Solutions --limit 50 --json name -q '.[].name' 2>/dev/null)
 
 echo "$REPO_LIST" | while read repo; do
   [ -z "$repo" ] && continue
+
+  # Skip dead/duplicate repos
+  if echo "$SKIP_REPOS" | grep -qw "$repo"; then
+    echo "  ⏭️  $repo (skipped — dead/duplicate)"
+    continue
+  fi
 
   # Check if already cloned somewhere (any folder name, any depth)
   EXISTING=$(grep "^${repo}|" "$REPO_MAP" 2>/dev/null | head -1 | cut -d'|' -f2)
@@ -259,12 +265,14 @@ fi
 
 mkdir -p "$HOME/.claude/rules"
 
-# Global CLAUDE.md (repo is source of truth — always overwrite)
-if [ -f "$SKILLS_REPO/config/global-claude.md" ]; then
+# Global CLAUDE.md — only install if missing, never overwrite user's version
+if [ -f "$HOME/.claude/CLAUDE.md" ]; then
+  echo "✅ Global CLAUDE.md exists (not overwriting — user-managed)"
+elif [ -f "$SKILLS_REPO/config/global-claude.md" ]; then
   cp "$SKILLS_REPO/config/global-claude.md" "$HOME/.claude/CLAUDE.md"
-  echo "✅ Global CLAUDE.md installed"
+  echo "✅ Global CLAUDE.md installed from repo"
 else
-  echo "⚠️  Global CLAUDE.md not found in skills repo"
+  echo "⚠️  Global CLAUDE.md not found — create ~/.claude/CLAUDE.md manually"
 fi
 
 # Rules (add new, never delete existing local rules)
@@ -304,6 +312,23 @@ if command -v claude >/dev/null 2>&1; then
   # Kapture — browser automation
   echo "$MCP_LIST" | grep -q "kapture" && echo "  ✅ kapture MCP" \
     || { echo "  📥 Adding kapture MCP..."; claude mcp add kapture -s user -- npx -y kapture-mcp@latest bridge 2>/dev/null || true; }
+fi
+
+# ─── 9b. Verify PostToolUse analyzer hook ─────────────────
+echo ""
+echo "Verifying Claude Code hooks..."
+SETTINGS_FILE="$HOME/.claude/settings.json"
+if [ -f "$SETTINGS_FILE" ]; then
+  if grep -q "claude-hook-analyze" "$SETTINGS_FILE" 2>/dev/null; then
+    echo "  ✅ Code analyzer hook active in settings.json"
+  else
+    echo "  ⚠️  Code analyzer hook NOT in settings.json"
+    echo "  The closed-loop scanner won't fire on edits."
+    echo "  Add to PostToolUse hooks in ~/.claude/settings.json:"
+    echo '    {"type": "command", "command": "bash $HOME/Documents/scripts/claude-hook-analyze.sh"}'
+  fi
+else
+  echo "  ⚠️  ~/.claude/settings.json not found"
 fi
 
 # ─── 10. Skills & plugins (git clone — not interactive commands) ──
