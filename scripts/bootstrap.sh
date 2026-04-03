@@ -42,6 +42,8 @@ else
 fi
 
 # ─── 2. Core tools ────────────────────────────────────────
+echo ""
+echo "Core tools:"
 for tool in git node gh tmux; do
   if command -v "$tool" >/dev/null 2>&1; then
     echo "  ✅ $tool"
@@ -65,6 +67,85 @@ if command -v ruflo >/dev/null 2>&1; then
 else
   echo "  📥 Installing Ruflo..."
   npm install -g ruflo 2>/dev/null || echo "  ⚠️  Ruflo install failed — install manually: npm install -g ruflo"
+fi
+
+# ─── 4b. Code Analysis & Security Tools ───────────────────
+echo ""
+echo "Code analysis & security tools (closed-loop audit pipeline):"
+
+# Semgrep — SAST: OWASP Top 10, secrets, HIPAA patterns
+if command -v semgrep >/dev/null 2>&1; then
+  echo "  ✅ semgrep ($(semgrep --version 2>/dev/null))"
+else
+  echo "  📥 Installing Semgrep (SAST scanner)..."
+  brew install semgrep
+fi
+
+# Snyk — SCA + SAST: dependency CVEs, code vulnerabilities
+if command -v snyk >/dev/null 2>&1; then
+  echo "  ✅ snyk ($(snyk --version 2>/dev/null))"
+else
+  echo "  📥 Installing Snyk CLI..."
+  npm install -g snyk
+fi
+
+# ESLint — code quality linting
+if command -v eslint >/dev/null 2>&1; then
+  echo "  ✅ eslint ($(eslint --version 2>/dev/null))"
+else
+  echo "  📥 Installing ESLint + TypeScript ESLint..."
+  npm install -g eslint typescript @typescript-eslint/parser @typescript-eslint/eslint-plugin
+fi
+
+# TypeScript — type checking
+if command -v tsc >/dev/null 2>&1; then
+  echo "  ✅ typescript ($(tsc --version 2>/dev/null))"
+else
+  echo "  📥 Installing TypeScript..."
+  npm install -g typescript
+fi
+
+# SonarQube Scanner — deep analysis, pushes to SonarCloud (org: everestsleep)
+if command -v sonar-scanner >/dev/null 2>&1; then
+  echo "  ✅ sonar-scanner ($(sonar-scanner --version 2>&1 | grep CLI | awk '{print $NF}' || echo 'installed'))"
+else
+  echo "  📥 Installing SonarQube Scanner (for SonarCloud)..."
+  brew install sonar-scanner
+fi
+
+# ─── 4c. Snyk Authentication ─────────────────────────────
+if command -v snyk >/dev/null 2>&1; then
+  if snyk whoami >/dev/null 2>&1; then
+    echo "  ✅ Snyk: authenticated"
+  else
+    echo ""
+    echo "  ⚠️  Snyk needs authentication. Run after bootstrap:"
+    echo "     snyk auth"
+    echo "  (Opens browser — sign up free with GitHub)"
+  fi
+fi
+
+# ─── 4d. Code Analyzer Scripts ────────────────────────────
+echo ""
+echo "Closed-loop analyzer scripts:"
+SCRIPTS_DIR="$PROJECTS/scripts"
+mkdir -p "$SCRIPTS_DIR"
+
+for script in code-analyzer.sh claude-hook-analyze.sh vanta-mcp-wrapper.sh; do
+  if [ -x "$SCRIPTS_DIR/$script" ]; then
+    echo "  ✅ $script"
+  else
+    echo "  ⚠️  $script missing in ~/Documents/scripts/"
+  fi
+done
+
+# ─── 4e. Vanta Credentials ───────────────────────────────
+if [ -f "$HOME/.claude/vanta-credentials.json" ]; then
+  echo "  ✅ Vanta credentials file exists"
+else
+  echo "  ⚠️  Vanta credentials missing. Create ~/.claude/vanta-credentials.json with:"
+  echo '     {"client_id": "...", "client_secret": "..."}'
+  echo "  Get credentials from: https://developer.vanta.com/docs/api-access-setup"
 fi
 
 echo ""
@@ -197,19 +278,32 @@ fi
 # ─── 9. MCP servers ───────────────────────────────────────
 if command -v claude >/dev/null 2>&1; then
   echo ""
-  echo "Setting up MCP servers..."
+  echo "Setting up MCP servers (6 required)..."
+  MCP_LIST=$(claude mcp list 2>/dev/null)
 
-  # Ruflo (core orchestration)
-  claude mcp list 2>/dev/null | grep -q "ruflo" && echo "  ✅ ruflo MCP" \
+  # Ruflo — workflow automation
+  echo "$MCP_LIST" | grep -q "ruflo" && echo "  ✅ ruflo MCP" \
     || { echo "  📥 Adding ruflo MCP..."; claude mcp add ruflo -s user -- ruflo mcp start 2>/dev/null || true; }
 
-  # Context7 (free library docs)
-  claude mcp list 2>/dev/null | grep -q "context7" && echo "  ✅ context7 MCP" \
+  # Context7 — up-to-date library/framework docs (no hallucinated APIs)
+  echo "$MCP_LIST" | grep -q "context7" && echo "  ✅ context7 MCP" \
     || { echo "  📥 Adding context7 MCP..."; claude mcp add context7 -s user -- npx -y @upstash/context7-mcp@latest 2>/dev/null || true; }
 
-  # GitHub
-  claude mcp list 2>/dev/null | grep -q "github" && echo "  ✅ github MCP" \
-    || { echo "  📥 Adding github MCP..."; claude mcp add github -s user -- npx -y @modelcontextprotocol/server-github 2>/dev/null || true; }
+  # Vanta — SOC 2 / HIPAA compliance (1200+ security tests, 35+ frameworks)
+  echo "$MCP_LIST" | grep -q "vanta" && echo "  ✅ vanta MCP" \
+    || { echo "  📥 Adding vanta MCP..."; claude mcp add vanta -s user -- bash "$PROJECTS/scripts/vanta-mcp-wrapper.sh" 2>/dev/null || true; }
+
+  # Obsidian — company brain vault (decisions, lessons, architecture)
+  echo "$MCP_LIST" | grep -q "obsidian" && echo "  ✅ obsidian MCP" \
+    || { echo "  📥 Adding obsidian MCP..."; claude mcp add obsidian -s user -- npx -y @bitbonsai/mcpvault@latest "$PROJECTS/company-brain" 2>/dev/null || true; }
+
+  # Claude Flow — multi-agent swarm orchestration
+  echo "$MCP_LIST" | grep -q "claude-flow" && echo "  ✅ claude-flow MCP" \
+    || { echo "  📥 Adding claude-flow MCP..."; claude mcp add claude-flow -s user -- npx -y @claude-flow/cli@latest mcp start 2>/dev/null || true; }
+
+  # Kapture — browser automation
+  echo "$MCP_LIST" | grep -q "kapture" && echo "  ✅ kapture MCP" \
+    || { echo "  📥 Adding kapture MCP..."; claude mcp add kapture -s user -- npx -y kapture-mcp@latest bridge 2>/dev/null || true; }
 fi
 
 # ─── 10. Skills & plugins (git clone — not interactive commands) ──
@@ -265,7 +359,7 @@ else
 fi
 
 # ─── 11. Clean stale worktrees ────────────────────────────
-for d in "$PROJECTS"/Claude "$PROJECTS"/super-rcm "$PROJECTS"/5dsmiles-landing "$PROJECTS"/WakewellWeb "$PROJECTS"/claude-skills-ecosystem; do
+for d in "$PROJECTS"/Claude "$PROJECTS"/super-rcm "$PROJECTS"/5dsmiles-landing "$PROJECTS"/WakewellWeb "$PROJECTS"/ClaimMDGHL-Sync-Machine "$PROJECTS"/wakewell-b2b-dashboard "$PROJECTS"/claude-skills-ecosystem; do
   [ -d "$d/.git" ] && git -C "$d" worktree prune 2>/dev/null
 done
 
@@ -276,14 +370,24 @@ echo "  ✅ Setup Complete!"
 echo "========================================="
 echo ""
 echo "Your projects:"
-echo "  aria (org hub)     → cd ~/Documents/Claude && claude"
-echo "  rcm (data server)  → cd ~/Documents/super-rcm && claude"
-echo "  dashboard          → cd ~/Documents/5dsmiles-landing && claude"
-echo "  wakewellweb        → cd ~/Documents/WakewellWeb && claude"
-echo "  skills             → cd ~/Documents/claude-skills-ecosystem && claude"
+echo "  aria (org hub)      → cd ~/Documents/Claude && claude"
+echo "  rcm (data server)   → cd ~/Documents/super-rcm && claude"
+echo "  dashboard (5D)      → cd ~/Documents/5dsmiles-landing && claude"
+echo "  wakewellweb (Azure) → cd ~/Documents/WakewellWeb && claude"
+echo "  claims bridge       → cd ~/Documents/ClaimMDGHL-Sync-Machine && claude"
+echo "  b2b dashboard       → cd ~/Documents/wakewell-b2b-dashboard && claude"
+echo "  sleep scheduler     → cd ~/Documents/sleep_test_scheduler && claude"
+echo "  pegasus             → cd ~/Documents/Pegasus && claude"
+echo "  skills              → cd ~/Documents/claude-skills-ecosystem && claude"
+echo ""
+echo "Code analysis:"
+echo "  Full scan:  irun bash ~/Documents/scripts/code-analyzer.sh --all <project>"
+echo "  Security:   bash ~/Documents/scripts/code-analyzer.sh --tier 2 <project>"
+echo "  Deep (SC):  irun bash ~/Documents/scripts/code-analyzer.sh --tier 3 <project>"
+echo ""
+echo "MCP servers (6): ruflo, context7, vanta, obsidian, claude-flow, kapture"
 echo ""
 echo "Parallel:  bash ~/Documents/claude-skills-ecosystem/scripts/parallel.sh 5"
-echo "Manual:    ~/Documents/Claude/docs/SETUP-GUIDE.md"
 echo ""
 echo "Start:     cd ~/Documents/Claude && claude"
 echo ""
