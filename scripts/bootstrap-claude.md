@@ -10,7 +10,10 @@ Run these two checks:
 # Required — blocks bootstrap if missing
 echo "REQUIRED gh:$(command -v gh >/dev/null 2>&1 && echo OK || echo MISSING) node:$(command -v node >/dev/null 2>&1 && echo OK || echo MISSING) infisical:$(command -v infisical >/dev/null 2>&1 && echo OK || echo MISSING)"
 # Optional — warn but continue if missing (audit pipeline only)
-echo "OPTIONAL ruflo:$(command -v ruflo >/dev/null 2>&1 && echo OK || echo MISSING) az:$(command -v az >/dev/null 2>&1 && echo OK || echo MISSING) semgrep:$(command -v semgrep >/dev/null 2>&1 && echo OK || echo MISSING) snyk:$(command -v snyk >/dev/null 2>&1 && echo OK || echo MISSING) eslint:$(command -v eslint >/dev/null 2>&1 && echo OK || echo MISSING) sonar-scanner:$(command -v sonar-scanner >/dev/null 2>&1 && echo OK || echo MISSING)"
+# Optional — warn but continue if missing (audit pipeline + tooling)
+echo "OPTIONAL ruflo:$(command -v ruflo >/dev/null 2>&1 && echo OK || echo MISSING) az:$(command -v az >/dev/null 2>&1 && echo OK || echo MISSING) semgrep:$(command -v semgrep >/dev/null 2>&1 && echo OK || echo MISSING) snyk:$(command -v snyk >/dev/null 2>&1 && echo OK || echo MISSING) sonar-scanner:$(command -v sonar-scanner >/dev/null 2>&1 && echo OK || echo MISSING)"
+# ESLint/tsc — check local (npx) first, fall back to global
+echo "OPTIONAL eslint:$(npx eslint --version 2>/dev/null || command -v eslint >/dev/null 2>&1 && echo OK || echo MISSING) tsc:$(npx tsc --version 2>/dev/null || command -v tsc >/dev/null 2>&1 && echo OK || echo MISSING)"
 ```
 
 **If any REQUIRED tool is MISSING** → STOP. Tell the user:
@@ -29,29 +32,36 @@ Continue to Step 2.
 claude mcp list 2>/dev/null
 ```
 
-**Required MCP servers (all 6 must show ✓ Connected):**
+**Required MCP servers (STOP if any missing — can't be added mid-session):**
 
 | Server | Command | Purpose |
 |--------|---------|---------|
-| **ruflo** | `ruflo mcp start` | Workflow automation |
 | **context7** | `npx -y @upstash/context7-mcp@latest` | Up-to-date library/framework docs |
-| **vanta** | `bash ~/Documents/scripts/vanta-mcp-wrapper.sh` | SOC 2 / HIPAA compliance (1200+ tests) |
 | **obsidian** | `npx -y @bitbonsai/mcpvault@latest ~/Documents/company-brain` | Company brain vault |
+| **vanta** | `bash ~/Documents/scripts/vanta-mcp-wrapper.sh` | SOC 2 / HIPAA compliance |
+| **ruflo** | `ruflo mcp start` | Workflow automation |
+
+**Optional MCP servers (warn but continue):**
+
+| Server | Command | Purpose |
+|--------|---------|---------|
 | **claude-flow** | `npx -y @claude-flow/cli@latest mcp start` | Multi-agent swarm orchestration |
 | **kapture** | `npx -y kapture-mcp@latest bridge` | Browser automation |
 
-If ANY are MISSING or FAILED, tell the user which ones and provide the add commands:
+If any **required** server is MISSING or FAILED, tell the user which ones and provide the add commands:
 ```bash
-claude mcp add ruflo -s user -- ruflo mcp start
 claude mcp add context7 -- npx -y @upstash/context7-mcp@latest
-claude mcp add vanta -s user -- bash ~/Documents/scripts/vanta-mcp-wrapper.sh
 claude mcp add obsidian -- npx -y @bitbonsai/mcpvault@latest ~/Documents/company-brain
+claude mcp add vanta -s user -- bash ~/Documents/scripts/vanta-mcp-wrapper.sh
+claude mcp add ruflo -s user -- ruflo mcp start
 claude mcp add claude-flow -- npx -y @claude-flow/cli@latest mcp start
 claude mcp add kapture -- npx -y kapture-mcp@latest bridge
 ```
 > "Then restart Claude."
 
-Then STOP. MCP servers can't be added mid-session.
+Then STOP — required MCP servers can't be added mid-session.
+
+If only **optional** servers are missing, warn and continue.
 
 ## Step 3: Check auth (Infisical + Azure)
 
@@ -89,8 +99,9 @@ if [ -d "$CWD/.git" ]; then
     git -C "$CWD" pull --ff-only 2>/dev/null || echo "  skip (local changes)"
   fi
 fi
-# Also pull company-brain (needed for Step 6)
+# Also pull company-brain (needed for Step 6) and skills ecosystem (this bootstrap)
 [ -d ~/Documents/company-brain/.git ] && git -C ~/Documents/company-brain pull --ff-only 2>/dev/null
+[ -d ~/Documents/claude-skills-ecosystem/.git ] && git -C ~/Documents/claude-skills-ecosystem pull --ff-only 2>/dev/null
 ```
 
 ## Step 5: Verify code analysis stack
@@ -104,7 +115,8 @@ echo "hook:$([ -x ~/Documents/scripts/claude-hook-analyze.sh ] && echo OK || ech
 echo "hook-active:$(grep -q 'claude-hook-analyze' ~/.claude/settings.json 2>/dev/null && echo OK || echo MISSING)"
 echo "semgrep:$(semgrep --version 2>/dev/null || echo MISSING)"
 echo "snyk:$(snyk --version 2>/dev/null || echo MISSING)"
-echo "eslint:$(eslint --version 2>/dev/null || echo MISSING)"
+echo "eslint:$(npx eslint --version 2>/dev/null || eslint --version 2>/dev/null || echo MISSING)"
+echo "tsc:$(npx tsc --version 2>/dev/null || tsc --version 2>/dev/null || echo MISSING)"
 echo "sonar:$(sonar-scanner --version 2>&1 | grep CLI | awk '{print $NF}' || echo MISSING)"
 ```
 

@@ -1,3 +1,7 @@
+<!-- REFERENCE COPY — DO NOT auto-deploy this file over ~/.claude/CLAUDE.md.
+     The installed version is user-managed and may have edits not in this repo.
+     bootstrap.sh only copies this if ~/.claude/CLAUDE.md doesn't exist yet.
+     To update: edit ~/.claude/CLAUDE.md directly, then copy here to keep in sync. -->
 # Shared Rules
 
 ## Org
