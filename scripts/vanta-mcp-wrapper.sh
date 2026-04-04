@@ -5,6 +5,8 @@ set -euo pipefail
 
 # Cross-platform PATH
 [[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+# Git Bash on Windows mangles /paths — disable MSYS path conversion for infisical
+export MSYS_NO_PATHCONV=1
 
 # Pull credentials from Infisical and write temp credentials file
 CRED_FILE=$(mktemp)
