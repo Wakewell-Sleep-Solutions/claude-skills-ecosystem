@@ -11,8 +11,11 @@ Run these checks:
 # macOS Homebrew paths
 [[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 # Windows Python Scripts (semgrep installs here via pip)
-[ -d "$HOME/AppData/Local/Programs/Python" ] && export PATH="$HOME/AppData/Local/Programs/Python/Python*/Scripts:$PATH"
-[ -d "$LOCALAPPDATA/Programs/Python" ] && export PATH="$(ls -d "$LOCALAPPDATA"/Programs/Python/Python*/Scripts 2>/dev/null | head -1):$PATH"
+# Check both common Python install locations; convert Windows paths to Unix-style for Git Bash
+for pydir in "$HOME/AppData/Local/Python" "$HOME/AppData/Local/Programs/Python"; do
+  PYBIN=$(ls -d "$pydir"/Python*/Scripts 2>/dev/null "$pydir"/pythoncore*/Scripts 2>/dev/null | head -1)
+  [ -n "$PYBIN" ] && export PATH="$PYBIN:$PATH" && break
+done
 # Required — blocks bootstrap if missing
 echo "REQUIRED gh:$(command -v gh >/dev/null 2>&1 && echo OK || echo MISSING) node:$(command -v node >/dev/null 2>&1 && echo OK || echo MISSING) infisical:$(command -v infisical >/dev/null 2>&1 && echo OK || echo MISSING)"
 # Optional — warn but continue if missing
@@ -133,7 +136,10 @@ The closed-loop code analysis system runs automatically via PostToolUse hooks. V
 ```bash
 [ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
 [[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-[ -d "$HOME/AppData/Local/Programs/Python" ] && export PATH="$(ls -d "$LOCALAPPDATA"/Programs/Python/Python*/Scripts 2>/dev/null | head -1):$PATH"
+for pydir in "$HOME/AppData/Local/Python" "$HOME/AppData/Local/Programs/Python"; do
+  PYBIN=$(ls -d "$pydir"/Python*/Scripts 2>/dev/null "$pydir"/pythoncore*/Scripts 2>/dev/null | head -1)
+  [ -n "$PYBIN" ] && export PATH="$PYBIN:$PATH" && break
+done
 # Scripts live in the skills ecosystem repo
 SCRIPTS="$HOME/Documents/claude-skills-ecosystem/scripts"
 echo "analyzer:$([ -f $SCRIPTS/code-analyzer.sh ] && echo OK || echo MISSING)"
