@@ -34,7 +34,7 @@ Continue to Step 2.
 claude mcp list 2>/dev/null
 ```
 
-**Required MCP servers (STOP if any missing — can't be added mid-session):**
+**All 8 MCP servers are required (STOP if any missing — can't be added mid-session):**
 
 | Server | Command | Purpose |
 |--------|---------|---------|
@@ -42,11 +42,6 @@ claude mcp list 2>/dev/null
 | **obsidian** | `npx -y @bitbonsai/mcpvault@latest ~/Documents/company-brain` | Company brain vault |
 | **vanta** | `bash ~/Documents/scripts/vanta-mcp-wrapper.sh` | SOC 2 / HIPAA compliance |
 | **ruflo** | `ruflo mcp start` | Workflow automation |
-
-**Optional MCP servers (warn but continue):**
-
-| Server | Command | Purpose |
-|--------|---------|---------|
 | **claude-flow** | `npx -y @claude-flow/cli@latest mcp start` | Multi-agent swarm orchestration |
 | **kapture** | `npx -y kapture-mcp@latest bridge` | Browser automation |
 | **stitch** | `npx -y stitch-mcp` | Google Stitch AI design canvas → code |
@@ -54,7 +49,7 @@ claude mcp list 2>/dev/null
 
 Note: GitHub MCP is not required — the `gh` CLI covers PRs, issues, and API calls natively.
 
-If any **required** server is MISSING or FAILED, tell the user which ones and provide the add commands:
+If ANY are MISSING or FAILED, tell the user which ones and provide the add commands:
 ```bash
 claude mcp add context7 -- npx -y @upstash/context7-mcp@latest
 claude mcp add obsidian -- npx -y @bitbonsai/mcpvault@latest ~/Documents/company-brain
@@ -67,9 +62,7 @@ claude mcp add aceternity -- npx -y aceternityui-mcp
 ```
 > "Then restart Claude."
 
-Then STOP — required MCP servers can't be added mid-session.
-
-If only **optional** servers are missing, warn and continue.
+Then STOP — MCP servers can't be added mid-session.
 
 ## Step 3: Check auth (Infisical + Azure)
 
