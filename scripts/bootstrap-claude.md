@@ -10,52 +10,44 @@ Run these checks:
 [ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
 # macOS Homebrew paths
 [[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+# Windows Python Scripts (semgrep installs here via pip)
+[ -d "$HOME/AppData/Local/Programs/Python" ] && export PATH="$HOME/AppData/Local/Programs/Python/Python*/Scripts:$PATH"
+[ -d "$LOCALAPPDATA/Programs/Python" ] && export PATH="$(ls -d "$LOCALAPPDATA"/Programs/Python/Python*/Scripts 2>/dev/null | head -1):$PATH"
 # Required — blocks bootstrap if missing
 echo "REQUIRED gh:$(command -v gh >/dev/null 2>&1 && echo OK || echo MISSING) node:$(command -v node >/dev/null 2>&1 && echo OK || echo MISSING) infisical:$(command -v infisical >/dev/null 2>&1 && echo OK || echo MISSING)"
-# Optional — warn but continue if missing (audit pipeline + tooling)
+# Optional — warn but continue if missing
 echo "OPTIONAL ruflo:$(command -v ruflo >/dev/null 2>&1 && echo OK || echo MISSING) az:$(command -v az >/dev/null 2>&1 && echo OK || echo MISSING)"
-# Audit tools (semgrep, snyk, eslint, tsc, sonar-scanner) are checked in Step 5 — not here
+# Audit tools checked in Step 6 — not here
 ```
 
 **If any REQUIRED tool is MISSING** → STOP. Tell the user:
 > "Core tools missing. Run this in Terminal first, then start a new Claude session:"
 > `bash ~/Documents/claude-skills-ecosystem/scripts/bootstrap.sh`
 
-**If only OPTIONAL tools are MISSING** → warn and continue:
-> "Note: [tool names] not installed. The closed-loop audit pipeline (Waves 1-3) won't run. Install later with `bash ~/Documents/claude-skills-ecosystem/scripts/bootstrap.sh`"
+**If only OPTIONAL tools are MISSING** → warn and continue.
 
 Continue to Step 2.
 
 ## Step 2: Check MCP servers
 
-```bash
-[ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
-[[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-claude mcp list 2>/dev/null
-```
+Do NOT run `claude mcp list` — it may not be in PATH. Instead, check which MCP tools are available to you by looking at your own tool list. You (the agent) can see what MCP servers are connected by checking if tools with the `mcp__<server>__` prefix exist.
 
-**Required MCP servers (STOP if any missing — can't be added mid-session):**
+**All 8 MCP servers are required (STOP if any missing — can't be added mid-session):**
 
-| Server | Command | Purpose |
-|--------|---------|---------|
-| **context7** | `npx -y @upstash/context7-mcp@latest` | Up-to-date library/framework docs |
-| **obsidian** | `npx -y @bitbonsai/mcpvault@latest ~/Documents/company-brain` | Company brain vault |
-| **vanta** | `bash ~/Documents/claude-skills-ecosystem/scripts/vanta-mcp-wrapper.sh` | SOC 2 / HIPAA compliance |
-| **ruflo** | `ruflo mcp start` | Workflow automation |
-
-**Recommended MCP servers (warn but continue — install when needed):**
-
-| Server | Command | Purpose |
-|--------|---------|---------|
-| **claude-flow** | `npx -y @claude-flow/cli@latest mcp start` | Multi-agent swarm orchestration |
-| **kapture** | `npx -y kapture-mcp@latest bridge` | Browser automation |
-| **stitch** | `npx -y stitch-mcp` | Google Stitch AI design canvas → code |
-| **aceternity** | `npx -y aceternityui-mcp` | 200+ animated React/Tailwind components |
+| Server | Tool prefix to check | Purpose |
+|--------|---------------------|---------|
+| **context7** | `mcp__context7__` | Up-to-date library/framework docs |
+| **obsidian** | `mcp__obsidian__` | Company brain vault |
+| **vanta** | `mcp__vanta__` | SOC 2 / HIPAA compliance |
+| **ruflo** | `mcp__ruflo__` | Workflow automation |
+| **claude-flow** | `mcp__claude-flow__` | Multi-agent swarm orchestration |
+| **kapture** | `mcp__kapture__` or `mcp__Kapture__` | Browser automation |
+| **stitch** | `mcp__stitch__` | Google Stitch AI design → code |
+| **aceternity** | `mcp__aceternity__` | 200+ animated React/Tailwind components |
 
 Note: GitHub MCP is not required — the `gh` CLI covers PRs, issues, and API calls natively.
 
-If any **required** server is MISSING or FAILED, STOP and provide the add commands.
-If only **recommended** servers are missing, warn and continue.
+If ANY server is missing, tell the user to run these commands in a separate terminal, then restart Claude:
 ```bash
 claude mcp add context7 -- npx -y @upstash/context7-mcp@latest
 claude mcp add obsidian -- npx -y @bitbonsai/mcpvault@latest ~/Documents/company-brain
@@ -66,16 +58,15 @@ claude mcp add kapture -- npx -y kapture-mcp@latest bridge
 claude mcp add stitch -- npx -y stitch-mcp
 claude mcp add aceternity -- npx -y aceternityui-mcp
 ```
-> "Then restart Claude."
 
-Then STOP — MCP servers can't be added mid-session.
+Then STOP — MCP servers can't be added mid-session. All 8 are required.
 
 ## Step 3: Check auth (Infisical + Azure)
 
 ```bash
 [ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
 [[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-# Infisical — exit-code based (no fragile pipe parsing)
+# Infisical — exit-code based
 infisical secrets --env=prod --path=/shared --silent >/dev/null 2>&1 && echo "infisical:OK" || echo "infisical:NOT_AUTHED"
 # Azure — verify logged in, not just installed
 az account show --query name -o tsv 2>/dev/null && echo "az:OK" || echo "az:NOT_LOGGED_IN"
@@ -88,30 +79,32 @@ If both OK: say nothing.
 ## Step 4: Sync repos (skip in worktrees)
 
 ```bash
-# Detect worktree
-WORKTREE_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-MAIN_ROOT=$(git -C "$WORKTREE_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/.git$||' 2>/dev/null)
-[ "$WORKTREE_ROOT" != "$MAIN_ROOT" ] 2>/dev/null && echo "IN_WORKTREE" || echo "MAIN_REPO"
-```
+[ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
+[[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
-If IN_WORKTREE: skip this step entirely.
-
-If MAIN_REPO: only pull the **current project** (fast, no latency from scanning all repos):
-```bash
-# Pull current project only
 CWD=$(pwd)
-if [ -d "$CWD/.git" ]; then
-  REMOTE=$(git -C "$CWD" remote get-url origin 2>/dev/null || true)
-  if echo "$REMOTE" | grep -qi "Wakewell-Sleep-Solutions"; then
-    echo "Pulling: $(basename $CWD)"
-    git -C "$CWD" pull --ff-only 2>/dev/null || echo "  skip (local changes)"
+# Only attempt git operations if we're actually in a git repo
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  WORKTREE_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+  MAIN_ROOT=$(git -C "$WORKTREE_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/.git$||' 2>/dev/null)
+  if [ "$WORKTREE_ROOT" != "$MAIN_ROOT" ]; then
+    echo "IN_WORKTREE — skipping sync"
+  else
+    REMOTE=$(git remote get-url origin 2>/dev/null || true)
+    if echo "$REMOTE" | grep -qi "Wakewell-Sleep-Solutions"; then
+      echo "Pulling: $(basename "$CWD")"
+      git pull --ff-only 2>/dev/null || echo "  ⚠️ Pull failed (local changes or network issue)"
+    fi
   fi
 else
-  echo "Not in a git repo — skipping project sync. cd into a project first, or pull manually."
+  echo "Not in a git repo — skipping project sync."
 fi
-# Also pull company-brain (needed for Step 6) and skills ecosystem (this bootstrap)
-[ -d ~/Documents/company-brain/.git ] && git -C ~/Documents/company-brain pull --ff-only 2>/dev/null
-[ -d ~/Documents/claude-skills-ecosystem/.git ] && git -C ~/Documents/claude-skills-ecosystem pull --ff-only 2>/dev/null
+# Always pull company-brain + skills ecosystem (needed for Steps 5-7)
+for repo in ~/Documents/company-brain ~/Documents/claude-skills-ecosystem; do
+  if [ -d "$repo/.git" ]; then
+    git -C "$repo" pull --ff-only 2>/dev/null || echo "  ⚠️ $(basename "$repo") pull failed"
+  fi
+done
 ```
 
 ## Step 5: Verify skills are installed
@@ -119,13 +112,10 @@ fi
 ```bash
 echo "skills-dir:$([ -d ~/.claude/skills ] && echo OK || echo MISSING)"
 echo "skill-count:$(ls -d ~/.claude/skills/*/SKILL.md 2>/dev/null | wc -l | tr -d ' ') skills"
-echo "gstack:$([ -d ~/.claude/skills/gstack ] && echo OK || echo MISSING)"
 ```
 
 If skills-dir is MISSING or skill-count is 0:
 > "Skills not installed. Run `bash ~/Documents/claude-skills-ecosystem/scripts/bootstrap.sh` — Section 10 installs them."
-
-If only gstack is MISSING but other skills exist: that's fine, gstack is optional.
 
 If skills exist but seem outdated, pull latest:
 ```bash
@@ -139,12 +129,12 @@ The closed-loop code analysis system runs automatically via PostToolUse hooks. V
 ```bash
 [ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
 [[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-# Scripts can be at ~/Documents/scripts/ OR ~/Documents/claude-skills-ecosystem/scripts/
-SCRIPTS="$HOME/Documents/scripts"
-SKILLS_SCRIPTS="$HOME/Documents/claude-skills-ecosystem/scripts"
-echo "analyzer:$([ -x $SCRIPTS/code-analyzer.sh ] || [ -x $SKILLS_SCRIPTS/code-analyzer.sh ] && echo OK || echo MISSING)"
-echo "hook:$([ -x $SCRIPTS/claude-hook-analyze.sh ] || [ -x $SKILLS_SCRIPTS/claude-hook-analyze.sh ] && echo OK || echo MISSING)"
-echo "hook-active:$(grep -q 'claude-hook-analyze' ~/.claude/settings.json 2>/dev/null && echo OK || echo MISSING)"
+[ -d "$HOME/AppData/Local/Programs/Python" ] && export PATH="$(ls -d "$LOCALAPPDATA"/Programs/Python/Python*/Scripts 2>/dev/null | head -1):$PATH"
+# Scripts live in the skills ecosystem repo
+SCRIPTS="$HOME/Documents/claude-skills-ecosystem/scripts"
+echo "analyzer:$([ -f $SCRIPTS/code-analyzer.sh ] && echo OK || echo MISSING)"
+echo "hook:$([ -f $SCRIPTS/claude-hook-analyze.sh ] && echo OK || echo MISSING)"
+echo "hook-active:$(grep -q 'claude-hook-analyze\|codex-audit' ~/.claude/settings.json 2>/dev/null && echo OK || echo MISSING)"
 echo "semgrep:$(semgrep --version 2>/dev/null || echo MISSING)"
 echo "snyk:$(snyk --version 2>/dev/null || echo MISSING)"
 echo "eslint:$(npx eslint --version 2>/dev/null || eslint --version 2>/dev/null || echo MISSING)"
@@ -167,11 +157,25 @@ If hook-active is MISSING: warn user and provide fix:
 > {"matcher": "Write|Edit", "hooks": [{"type": "command", "command": "bash ~/Documents/claude-skills-ecosystem/scripts/claude-hook-analyze.sh"}]}
 > ```
 
-If any tool is MISSING: `brew install semgrep sonar-scanner && npm install -g snyk eslint typescript` (macOS) or see `bootstrap.sh` for Windows equivalents.
+If any tool is MISSING:
+- macOS: `brew install semgrep sonar-scanner && npm install -g snyk eslint typescript`
+- Windows: `pip install semgrep && npm install -g snyk eslint typescript` (sonar-scanner: download from sonarsource.com)
 
 ## Step 7: Read org context from Company Brain
 
 The Company Brain vault (`~/Documents/company-brain/`) is the single source of truth for all org context.
+
+**First, verify it exists:**
+```bash
+[ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
+[[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+[ -d ~/Documents/company-brain ] && echo "company-brain:OK" || echo "company-brain:MISSING"
+```
+
+If MISSING: tell user "Company Brain vault not found. Clone it: `gh repo clone Wakewell-Sleep-Solutions/company-brain ~/Documents/company-brain`"
+Then skip to Step 8 — org context is unavailable without it.
+
+If present, load context:
 
 1. Read `~/Documents/company-brain/CLAUDE.md` (context router — tells you what to load)
 2. Read `./CLAUDE.md` (current project rules)
@@ -197,12 +201,14 @@ The Company Brain vault (`~/Documents/company-brain/`) is the single source of t
 ## Step 8: What changed recently
 
 ```bash
+[ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
+[[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 # Use 3 days to cover weekends (Fri 5pm → Mon 9am)
 for d in ~/Documents/*/; do
   if [ -d "$d/.git" ]; then
     CHANGES=$(git -C "$d" log --oneline --since="3 days ago" 2>/dev/null | head -5)
     if [ -n "$CHANGES" ]; then
-      echo "=== $(basename $d) ==="
+      echo "=== $(basename "$d") ==="
       echo "$CHANGES"
     fi
   fi
@@ -238,4 +244,4 @@ Read the selected project's CLAUDE.md. Start working.
 - Full scan: `irun bash ~/Documents/claude-skills-ecosystem/scripts/code-analyzer.sh --all <project>`
 - Security only: `bash ~/Documents/claude-skills-ecosystem/scripts/code-analyzer.sh --tier 2 <project>`
 - Cloud: Azure exclusively (`az` CLI). Never AWS/GCP.
-- Secrets: Infisical (local dev) + Azure Key Vault (production). Never `.env` files.
+- Secrets: Infisical (local dev, inject via `irun <cmd>`) + Azure Key Vault (production). Never `.env` files.

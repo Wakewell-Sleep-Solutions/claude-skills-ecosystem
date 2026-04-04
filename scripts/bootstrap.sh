@@ -1,11 +1,13 @@
 #!/bin/bash
-# WakeWell / 5D Smiles — New Machine Bootstrap (macOS + Windows)
+# WakeWell / 5D Smiles — New Machine Bootstrap (macOS + Windows + Linux)
 # Source of truth: claude-skills-ecosystem repo
 #
 # Fresh machine:   bash <(curl -s https://raw.githubusercontent.com/Wakewell-Sleep-Solutions/claude-skills-ecosystem/main/scripts/bootstrap.sh)
 # Existing clone:  bash ~/Documents/claude-skills-ecosystem/scripts/bootstrap.sh
 
-set -e
+# Use -eE with trap instead of bare set -e — allows cleanup on failure
+set -eE
+trap 'echo ""; echo "⚠️  Bootstrap failed at line $LINENO. Check output above."; cleanup' ERR
 
 echo "========================================="
 echo "  WakeWell AI Command Center — Setup"
@@ -14,16 +16,33 @@ echo ""
 
 PROJECTS="$HOME/Documents"
 SKILLS_REPO="$PROJECTS/claude-skills-ecosystem"
+LOG_FILE="$PROJECTS/bootstrap-$(date +%Y%m%d-%H%M%S).log"
+
+# Tee output to log file for debugging
+exec > >(tee -a "$LOG_FILE") 2>&1
+echo "Log: $LOG_FILE"
+
+# Temp file tracking for cleanup
+TEMP_FILES=()
+cleanup() {
+  for f in "${TEMP_FILES[@]}"; do
+    rm -f "$f" 2>/dev/null
+  done
+}
+trap cleanup EXIT
 
 # ─── 0. Detect OS and source package managers ────────────
 [ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
 
 OS="unknown"
-PKG_INSTALL=""
 if [[ "$OSTYPE" == "darwin"* ]]; then
   OS="macos"
 elif [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$OSTYPE" == "win32" ]] || uname -r 2>/dev/null | grep -qi microsoft; then
   OS="windows"
+  # Add Python Scripts to PATH (semgrep installs here via pip)
+  for pydir in "$LOCALAPPDATA"/Programs/Python/Python*/Scripts "$HOME"/AppData/Local/Programs/Python/Python*/Scripts; do
+    [ -d "$pydir" ] && export PATH="$pydir:$PATH"
+  done
 elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
   OS="linux"
 fi
@@ -40,27 +59,23 @@ if [ "$OS" = "macos" ]; then
   fi
 
   if ! command -v brew >/dev/null 2>&1; then
-    echo "📥 Installing Homebrew (you may need to enter your password)..."
+    echo "Installing Homebrew (you may need to enter your password)..."
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     if [ -x /opt/homebrew/bin/brew ]; then
       eval "$(/opt/homebrew/bin/brew shellenv)"
       grep -q 'brew shellenv' ~/.zprofile 2>/dev/null || echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
     fi
   else
-    echo "✅ Homebrew: installed"
+    echo "Homebrew: installed"
   fi
-  PKG_INSTALL="brew install"
 elif [ "$OS" = "windows" ]; then
   if command -v winget >/dev/null 2>&1; then
-    echo "✅ winget: available"
-    PKG_INSTALL="winget install --accept-package-agreements --accept-source-agreements -e --id"
-  elif command -v choco >/dev/null 2>&1; then
-    echo "✅ chocolatey: available"
-    PKG_INSTALL="choco install -y"
+    echo "winget: available"
   else
-    echo "⚠️  No package manager found (winget or chocolatey). Using npm/pip for installs."
-    PKG_INSTALL=""
+    echo "No winget found. Using npm/pip for installs."
   fi
+elif [ "$OS" = "linux" ]; then
+  echo "Linux detected. Using npm/pip for installs (apt/dnf for system packages if needed)."
 fi
 
 # Helper: install a tool cross-platform
@@ -72,32 +87,41 @@ install_tool() {
   local pip_pkg="${5:-}"
 
   if command -v "$tool" >/dev/null 2>&1; then
-    echo "  ✅ $tool"
+    echo "  [OK] $tool"
     return 0
   fi
 
-  echo "  📥 Installing $tool..."
+  echo "  [INSTALL] $tool..."
   if [ "$OS" = "macos" ]; then
-    brew install "$brew_pkg" 2>/dev/null || echo "  ⚠️  brew install $brew_pkg failed"
+    brew install "$brew_pkg" 2>/dev/null || echo "  [WARN] brew install $brew_pkg failed"
   elif [ "$OS" = "windows" ]; then
-    # Try winget first, then npm, then pip
+    # Try winget, then npm, then pip — cascading fallback
+    local installed=false
     if [ -n "$winget_id" ] && command -v winget >/dev/null 2>&1; then
-      winget install --accept-package-agreements --accept-source-agreements -e --id "$winget_id" 2>/dev/null || true
-    fi
-    # Check again — winget may have worked
-    if ! command -v "$tool" >/dev/null 2>&1; then
-      if [ -n "$npm_pkg" ] && command -v npm >/dev/null 2>&1; then
-        npm install -g "$npm_pkg" 2>/dev/null || true
+      winget install --accept-package-agreements --accept-source-agreements -e --id "$winget_id" 2>/dev/null && installed=true || true
+      # Refresh PATH after winget (Windows doesn't update current shell)
+      if [ "$installed" = "true" ]; then
+        hash -r 2>/dev/null  # bash cache clear
       fi
     fi
-    if ! command -v "$tool" >/dev/null 2>&1; then
-      if [ -n "$pip_pkg" ] && command -v pip >/dev/null 2>&1; then
-        pip install "$pip_pkg" 2>/dev/null || pip3 install "$pip_pkg" 2>/dev/null || true
-      fi
+    if ! command -v "$tool" >/dev/null 2>&1 && [ -n "$npm_pkg" ] && command -v npm >/dev/null 2>&1; then
+      npm install -g "$npm_pkg" 2>/dev/null && installed=true || true
     fi
-    command -v "$tool" >/dev/null 2>&1 || echo "  ⚠️  $tool install failed — install manually"
-  else
-    echo "  ⚠️  Manual install needed for $tool on $OS"
+    if ! command -v "$tool" >/dev/null 2>&1 && [ -n "$pip_pkg" ]; then
+      (command -v pip >/dev/null 2>&1 && pip install "$pip_pkg" 2>/dev/null) \
+        || (command -v pip3 >/dev/null 2>&1 && pip3 install "$pip_pkg" 2>/dev/null) \
+        || true
+    fi
+    command -v "$tool" >/dev/null 2>&1 || echo "  [WARN] $tool install failed -- install manually"
+  elif [ "$OS" = "linux" ]; then
+    # Try npm first, then pip
+    if [ -n "$npm_pkg" ] && command -v npm >/dev/null 2>&1; then
+      npm install -g "$npm_pkg" 2>/dev/null || true
+    fi
+    if ! command -v "$tool" >/dev/null 2>&1 && [ -n "$pip_pkg" ]; then
+      (command -v pip3 >/dev/null 2>&1 && pip3 install "$pip_pkg" 2>/dev/null) || true
+    fi
+    command -v "$tool" >/dev/null 2>&1 || echo "  [WARN] $tool: install manually (apt install $brew_pkg or equivalent)"
   fi
 }
 
@@ -115,23 +139,23 @@ install_tool     az          azure-cli       "Microsoft.AzureCLI"           ""  
 
 # ─── 3. Claude Code ───────────────────────────────────────
 if command -v claude >/dev/null 2>&1; then
-  echo "  ✅ claude ($(claude --version 2>/dev/null || echo 'installed'))"
+  echo "  [OK] claude ($(claude --version 2>/dev/null || echo 'installed'))"
 else
-  echo "  📥 Installing Claude Code..."
-  npm install -g @anthropic-ai/claude-code 2>/dev/null || echo "  ⚠️  Claude Code install failed"
+  echo "  [INSTALL] Claude Code..."
+  npm install -g @anthropic-ai/claude-code 2>/dev/null || echo "  [WARN] Claude Code install failed"
 fi
 
 # ─── 4. Ruflo ─────────────────────────────────────────────
 if command -v ruflo >/dev/null 2>&1; then
-  echo "  ✅ ruflo"
+  echo "  [OK] ruflo"
 else
-  echo "  📥 Installing Ruflo..."
-  npm install -g ruflo 2>/dev/null || echo "  ⚠️  Ruflo install failed — install manually: npm install -g ruflo"
+  echo "  [INSTALL] Ruflo..."
+  npm install -g ruflo 2>/dev/null || echo "  [WARN] Ruflo install failed"
 fi
 
 # ─── 4b. Code Analysis & Security Tools ───────────────────
 echo ""
-echo "Code analysis & security tools (closed-loop audit pipeline):"
+echo "Code analysis & security tools:"
 
 #                tool            brew_pkg        winget_id       npm_pkg                 pip_pkg
 install_tool     semgrep         semgrep         ""              ""                      "semgrep"
@@ -140,27 +164,23 @@ install_tool     eslint          ""              ""              "eslint"       
 install_tool     tsc             ""              ""              "typescript"            ""
 install_tool     sonar-scanner   sonar-scanner   ""              ""                      ""
 
-# sonar-scanner on Windows — special handling (no npm/pip package)
-if [ "$OS" = "windows" ] && ! command -v sonar-scanner >/dev/null 2>&1; then
-  echo "  ⚠️  sonar-scanner: Install manually from https://docs.sonarsource.com/sonarcloud/advanced-setup/ci-based-analysis/sonarscanner-cli/"
-  echo "     Or download: https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/"
+# sonar-scanner on Windows/Linux — no npm/pip package
+if [ "$OS" != "macos" ] && ! command -v sonar-scanner >/dev/null 2>&1; then
+  echo "  [WARN] sonar-scanner: download from https://docs.sonarsource.com/sonarcloud/advanced-setup/ci-based-analysis/sonarscanner-cli/"
 fi
 
-# npm global packages that work cross-platform
-if ! command -v eslint >/dev/null 2>&1; then
-  echo "  📥 Installing ESLint + TypeScript ESLint plugins..."
-  npm install -g eslint typescript @typescript-eslint/parser @typescript-eslint/eslint-plugin 2>/dev/null || true
+# Ensure ESLint plugins are installed
+if command -v npm >/dev/null 2>&1; then
+  npm list -g @typescript-eslint/parser >/dev/null 2>&1 \
+    || npm install -g @typescript-eslint/parser @typescript-eslint/eslint-plugin 2>/dev/null || true
 fi
 
 # ─── 4c. Snyk Authentication ─────────────────────────────
 if command -v snyk >/dev/null 2>&1; then
   if snyk whoami >/dev/null 2>&1; then
-    echo "  ✅ Snyk: authenticated"
+    echo "  [OK] Snyk: authenticated"
   else
-    echo ""
-    echo "  ⚠️  Snyk needs authentication. Run after bootstrap:"
-    echo "     snyk auth"
-    echo "  (Opens browser — sign up free with GitHub)"
+    echo "  [WARN] Snyk needs auth. Run after bootstrap: snyk auth"
   fi
 fi
 
@@ -172,50 +192,52 @@ mkdir -p "$SCRIPTS_DIR"
 
 for script in code-analyzer.sh claude-hook-analyze.sh vanta-mcp-wrapper.sh; do
   if [ -x "$SCRIPTS_DIR/$script" ]; then
-    echo "  ✅ $script"
+    echo "  [OK] $script"
   else
-    # Search for it anywhere under ~/Documents
     FOUND=$(find "$PROJECTS" -maxdepth 3 -name "$script" -type f 2>/dev/null | head -1)
     if [ -n "$FOUND" ]; then
       cp "$FOUND" "$SCRIPTS_DIR/$script"
       chmod +x "$SCRIPTS_DIR/$script"
-      echo "  ✅ $script (copied from $(dirname "$FOUND"))"
+      echo "  [OK] $script (copied from $(dirname "$FOUND"))"
     else
-      echo "  ⚠️  $script not found anywhere under ~/Documents/"
+      echo "  [WARN] $script not found"
     fi
   fi
 done
 
 # ─── 4e. Vanta Credentials ───────────────────────────────
 if [ -f "$HOME/.claude/vanta-credentials.json" ]; then
-  echo "  ✅ Vanta credentials file exists"
+  echo "  [OK] Vanta credentials file exists"
 else
-  echo "  ⚠️  Vanta credentials missing. Create ~/.claude/vanta-credentials.json with:"
+  echo "  [WARN] Vanta credentials missing. Create ~/.claude/vanta-credentials.json with:"
   echo '     {"client_id": "...", "client_secret": "..."}'
-  echo "  Get credentials from: https://developer.vanta.com/docs/api-access-setup"
 fi
 
 echo ""
-echo "✅ All tools installed"
+echo "All tools checked."
 
 # ─── 5. GitHub auth ───────────────────────────────────────
 echo ""
-if gh auth status >/dev/null 2>&1; then
-  echo "✅ GitHub: logged in as $(gh api user -q .login 2>/dev/null)"
+if command -v gh >/dev/null 2>&1; then
+  if gh auth status >/dev/null 2>&1; then
+    echo "[OK] GitHub: logged in as $(gh api user -q .login 2>/dev/null || echo 'authenticated')"
+  else
+    echo "[WARN] GitHub not authenticated. Run: gh auth login"
+  fi
 else
-  echo "⚠️  GitHub not authenticated. Run: gh auth login"
+  echo "[WARN] gh not installed — repo sync will be skipped"
 fi
 
 # ─── 6. Infisical ─────────────────────────────────────────
 if ! command -v infisical >/dev/null 2>&1; then
-  echo "  📥 Installing Infisical..."
+  echo "  [INSTALL] Infisical..."
   if [ "$OS" = "macos" ]; then
-    brew install infisical/get-cli/infisical 2>/dev/null || echo "  ⚠️  Infisical install failed"
+    brew install infisical/get-cli/infisical 2>/dev/null || echo "  [WARN] Infisical install failed"
   else
-    npm install -g @infisical/cli 2>/dev/null || echo "  ⚠️  Infisical install failed — try: npm install -g @infisical/cli"
+    npm install -g @infisical/cli 2>/dev/null || echo "  [WARN] Infisical install failed"
   fi
 else
-  echo "  ✅ infisical"
+  echo "  [OK] infisical"
 fi
 
 if command -v infisical >/dev/null 2>&1; then
@@ -224,18 +246,15 @@ if command -v infisical >/dev/null 2>&1; then
   [ "$INFISICAL_AUTHED" = "false" ] && infisical whoami >/dev/null 2>&1 && INFISICAL_AUTHED=true
 
   if [ "$INFISICAL_AUTHED" = "true" ]; then
-    echo "  ✅ Infisical: already authenticated"
+    echo "  [OK] Infisical: authenticated"
   else
-    echo ""
-    echo "  ⚠️  Infisical not authenticated. Run manually in Terminal:"
-    echo "     infisical login"
-    echo "  (Opens browser for SSO login — select Infisical Cloud US)"
+    echo "  [WARN] Infisical not authenticated. Run: infisical login"
   fi
 
   if infisical secrets --env=prod --path=/shared --silent >/dev/null 2>&1; then
-    echo "  ✅ Infisical: secrets accessible in /shared"
+    echo "  [OK] Infisical: secrets accessible in /shared"
   else
-    echo "  ⚠️  Infisical: can't read /shared secrets — check auth or ask admin"
+    echo "  [WARN] Infisical: can't read /shared secrets"
   fi
 fi
 
@@ -244,44 +263,54 @@ echo ""
 echo "Setting up projects..."
 mkdir -p "$PROJECTS"
 
-REPO_MAP=$(mktemp)
-find "$PROJECTS" -maxdepth 2 -name ".git" -type d 2>/dev/null | while read gitdir; do
-  REPO_DIR=$(dirname "$gitdir")
-  REMOTE=$(git -C "$REPO_DIR" remote get-url origin 2>/dev/null || true)
-  if echo "$REMOTE" | grep -qi "Wakewell-Sleep-Solutions"; then
-    REPO_NAME=$(echo "$REMOTE" | sed 's|.*/||' | sed 's|\.git$||')
-    echo "$REPO_NAME|$REPO_DIR" >> "$REPO_MAP"
-  fi
-done
+# Guard: skip if gh isn't authed
+if ! command -v gh >/dev/null 2>&1 || ! gh auth status >/dev/null 2>&1; then
+  echo "  [SKIP] GitHub not available/authed — skipping repo sync"
+else
+  REPO_MAP=$(mktemp)
+  TEMP_FILES+=("$REPO_MAP")
 
-SKIP_REPOS="WakewellRailway ODGHLSync opendentalsynctool SmartCoach salescoach"
-
-REPO_LIST=$(gh repo list Wakewell-Sleep-Solutions --limit 50 --json name -q '.[].name' 2>/dev/null)
-
-echo "$REPO_LIST" | while read repo; do
-  [ -z "$repo" ] && continue
-  if echo "$SKIP_REPOS" | grep -qw "$repo"; then
-    echo "  ⏭️  $repo (skipped — dead/duplicate)"
-    continue
-  fi
-
-  EXISTING=$(grep "^${repo}|" "$REPO_MAP" 2>/dev/null | head -1 | cut -d'|' -f2)
-
-  if [ -n "$EXISTING" ]; then
-    echo "  ✅ $(basename $EXISTING)/ (pulling latest)"
-    git -C "$EXISTING" pull --ff-only 2>/dev/null || echo "    ⚠️  Pull skipped (local changes or worktree)"
-  else
-    TARGET="$PROJECTS/$repo"
-    [ "$repo" = "aria-slack-bot" ] && TARGET="$PROJECTS/Claude"
-    if [ -d "$TARGET" ]; then
-      echo "  ⏭️  $(basename $TARGET)/ (exists, not this repo — skipping)"
-    else
-      gh repo clone "Wakewell-Sleep-Solutions/$repo" "$TARGET" 2>/dev/null && echo "  ✅ $(basename $TARGET)/ (cloned)" || true
+  find "$PROJECTS" -maxdepth 2 -name ".git" -type d 2>/dev/null | while read -r gitdir; do
+    REPO_DIR=$(dirname "$gitdir")
+    REMOTE=$(git -C "$REPO_DIR" remote get-url origin 2>/dev/null || true)
+    if echo "$REMOTE" | grep -qi "Wakewell-Sleep-Solutions"; then
+      REPO_NAME=$(echo "$REMOTE" | sed 's|.*/||' | sed 's|\.git$||')
+      echo "$REPO_NAME|$REPO_DIR" >> "$REPO_MAP"
     fi
-  fi
-done
+  done
 
-rm -f "$REPO_MAP"
+  SKIP_REPOS="WakewellRailway ODGHLSync opendentalsynctool SmartCoach salescoach"
+
+  REPO_LIST=$(gh repo list Wakewell-Sleep-Solutions --limit 50 --json name -q '.[].name' 2>/dev/null || echo "")
+
+  if [ -n "$REPO_LIST" ]; then
+    while IFS= read -r repo; do
+      [ -z "$repo" ] && continue
+      if echo "$SKIP_REPOS" | grep -qFw "$repo"; then
+        continue
+      fi
+
+      EXISTING=$(grep "^${repo}|" "$REPO_MAP" 2>/dev/null | head -1 | cut -d'|' -f2)
+
+      if [ -n "$EXISTING" ]; then
+        echo "  [OK] $(basename "$EXISTING")/ (pulling)"
+        git -C "$EXISTING" pull --ff-only 2>/dev/null || echo "    [WARN] Pull failed"
+      else
+        TARGET="$PROJECTS/$repo"
+        [ "$repo" = "aria-slack-bot" ] && TARGET="$PROJECTS/Claude"
+        if [ -d "$TARGET" ]; then
+          echo "  [SKIP] $(basename "$TARGET")/ (exists)"
+        else
+          if gh repo clone "Wakewell-Sleep-Solutions/$repo" "$TARGET" 2>/dev/null; then
+            echo "  [OK] $(basename "$TARGET")/ (cloned)"
+          else
+            echo "  [WARN] Failed to clone $repo"
+          fi
+        fi
+      fi
+    done <<< "$REPO_LIST"
+  fi
+fi
 
 # ─── 8. Global config from skills repo ───────────────────
 echo ""
@@ -296,108 +325,101 @@ mkdir -p "$HOME/.claude/rules"
 
 # Global CLAUDE.md — only install if missing, never overwrite user's version
 if [ -f "$HOME/.claude/CLAUDE.md" ]; then
-  echo "✅ Global CLAUDE.md exists (not overwriting — user-managed)"
+  echo "[OK] Global CLAUDE.md exists (not overwriting)"
 elif [ -f "$SKILLS_REPO/config/global-claude.md" ]; then
   cp "$SKILLS_REPO/config/global-claude.md" "$HOME/.claude/CLAUDE.md"
-  echo "✅ Global CLAUDE.md installed from repo"
+  echo "[OK] Global CLAUDE.md installed from repo"
 else
-  echo "⚠️  Global CLAUDE.md not found — create ~/.claude/CLAUDE.md manually"
+  echo "[WARN] Global CLAUDE.md not found"
 fi
 
 if [ -d "$SKILLS_REPO/config/rules" ]; then
   for f in "$SKILLS_REPO/config/rules/"*.md; do
     [ -f "$f" ] && cp "$f" "$HOME/.claude/rules/$(basename "$f")"
   done
-  echo "✅ Global rules synced"
+  echo "[OK] Global rules synced"
 fi
 
 # ─── 9. MCP servers ───────────────────────────────────────
 if command -v claude >/dev/null 2>&1; then
   echo ""
   echo "Setting up MCP servers (8 total)..."
-  MCP_LIST=$(claude mcp list 2>/dev/null)
+  MCP_LIST=$(claude mcp list 2>/dev/null || echo "")
 
-  echo "$MCP_LIST" | grep -q "ruflo" && echo "  ✅ ruflo MCP" \
-    || { echo "  📥 Adding ruflo MCP..."; claude mcp add ruflo -s user -- ruflo mcp start 2>/dev/null || true; }
+  echo "$MCP_LIST" | grep -q "ruflo" && echo "  [OK] ruflo MCP" \
+    || { echo "  [ADD] ruflo MCP..."; claude mcp add ruflo -s user -- ruflo mcp start 2>/dev/null || true; }
 
-  echo "$MCP_LIST" | grep -q "context7" && echo "  ✅ context7 MCP" \
-    || { echo "  📥 Adding context7 MCP..."; claude mcp add context7 -s user -- npx -y @upstash/context7-mcp@latest 2>/dev/null || true; }
+  echo "$MCP_LIST" | grep -q "context7" && echo "  [OK] context7 MCP" \
+    || { echo "  [ADD] context7 MCP..."; claude mcp add context7 -s user -- npx -y @upstash/context7-mcp@latest 2>/dev/null || true; }
 
-  echo "$MCP_LIST" | grep -q "vanta" && echo "  ✅ vanta MCP" \
+  # Vanta — search for wrapper script
+  echo "$MCP_LIST" | grep -q "vanta" && echo "  [OK] vanta MCP" \
     || {
-      # Search for vanta wrapper script
       VANTA_WRAPPER=$(find "$PROJECTS" -maxdepth 3 -name "vanta-mcp-wrapper.sh" -type f 2>/dev/null | head -1)
       if [ -n "$VANTA_WRAPPER" ]; then
-        echo "  📥 Adding vanta MCP (found: $VANTA_WRAPPER)..."
+        echo "  [ADD] vanta MCP (found: $VANTA_WRAPPER)..."
         claude mcp add vanta -s user -- bash "$VANTA_WRAPPER" 2>/dev/null || true
       else
-        echo "  ⚠️  vanta-mcp-wrapper.sh not found — Vanta MCP not added"
+        echo "  [WARN] vanta-mcp-wrapper.sh not found"
       fi
     }
 
-  echo "$MCP_LIST" | grep -q "obsidian" && echo "  ✅ obsidian MCP" \
-    || { echo "  📥 Adding obsidian MCP..."; claude mcp add obsidian -s user -- npx -y @bitbonsai/mcpvault@latest "$PROJECTS/company-brain" 2>/dev/null || true; }
+  echo "$MCP_LIST" | grep -q "obsidian" && echo "  [OK] obsidian MCP" \
+    || { echo "  [ADD] obsidian MCP..."; claude mcp add obsidian -s user -- npx -y @bitbonsai/mcpvault@latest "$PROJECTS/company-brain" 2>/dev/null || true; }
 
-  echo "$MCP_LIST" | grep -q "claude-flow" && echo "  ✅ claude-flow MCP" \
-    || { echo "  📥 Adding claude-flow MCP..."; claude mcp add claude-flow -s user -- npx -y @claude-flow/cli@latest mcp start 2>/dev/null || true; }
+  echo "$MCP_LIST" | grep -q "claude-flow" && echo "  [OK] claude-flow MCP" \
+    || { echo "  [ADD] claude-flow MCP..."; claude mcp add claude-flow -s user -- npx -y @claude-flow/cli@latest mcp start 2>/dev/null || true; }
 
-  echo "$MCP_LIST" | grep -q "kapture" && echo "  ✅ kapture MCP" \
-    || { echo "  📥 Adding kapture MCP..."; claude mcp add kapture -s user -- npx -y kapture-mcp@latest bridge 2>/dev/null || true; }
+  echo "$MCP_LIST" | grep -q "kapture" && echo "  [OK] kapture MCP" \
+    || { echo "  [ADD] kapture MCP..."; claude mcp add kapture -s user -- npx -y kapture-mcp@latest bridge 2>/dev/null || true; }
 
-  # Stitch — Google AI design canvas → code pipeline
-  echo "$MCP_LIST" | grep -q "stitch" && echo "  ✅ stitch MCP" \
-    || { echo "  📥 Adding stitch MCP..."; claude mcp add stitch -s user -- npx -y stitch-mcp 2>/dev/null || true; }
+  echo "$MCP_LIST" | grep -q "stitch" && echo "  [OK] stitch MCP" \
+    || { echo "  [ADD] stitch MCP..."; claude mcp add stitch -s user -- npx -y stitch-mcp 2>/dev/null || true; }
 
-  # Aceternity UI — 200+ animated React/Tailwind components
-  echo "$MCP_LIST" | grep -q "aceternity" && echo "  ✅ aceternity MCP" \
-    || { echo "  📥 Adding aceternity MCP..."; claude mcp add aceternity -s user -- npx -y aceternityui-mcp 2>/dev/null || true; }
+  echo "$MCP_LIST" | grep -q "aceternity" && echo "  [OK] aceternity MCP" \
+    || { echo "  [ADD] aceternity MCP..."; claude mcp add aceternity -s user -- npx -y aceternityui-mcp 2>/dev/null || true; }
 fi
 
-# ─── 9b. Verify PostToolUse analyzer hook ─────────────────
+# ─── 9b. Register PostToolUse analyzer hook ───────────────
 echo ""
-echo "Verifying Claude Code hooks..."
+echo "Checking Claude Code hooks..."
 SETTINGS_FILE="$HOME/.claude/settings.json"
 if [ -f "$SETTINGS_FILE" ]; then
-  if grep -q "claude-hook-analyze" "$SETTINGS_FILE" 2>/dev/null; then
-    echo "  ✅ Code analyzer hook active in settings.json"
+  if grep -q "claude-hook-analyze\|codex-audit" "$SETTINGS_FILE" 2>/dev/null; then
+    echo "  [OK] Code analyzer hook active"
   else
-    echo "  📥 Registering code analyzer hook in settings.json..."
-    # Search for the hook script anywhere under ~/Documents
     HOOK_PATH=$(find "$PROJECTS" -maxdepth 3 -name "claude-hook-analyze.sh" -type f 2>/dev/null | head -1)
-    if [ -n "$HOOK_PATH" ]; then
-      # Use python/node to safely merge into JSON (jq may not be installed)
-      if command -v python3 >/dev/null 2>&1; then
-        python3 -c "
-import json, sys
-with open('$SETTINGS_FILE', 'r') as f: cfg = json.load(f)
-hooks = cfg.setdefault('hooks', {})
-post = hooks.setdefault('PostToolUse', [])
-# Find or create the Write|Edit matcher
-matcher = None
-for entry in post:
-    if entry.get('matcher') == 'Write|Edit':
-        matcher = entry
-        break
-if not matcher:
-    matcher = {'matcher': 'Write|Edit', 'hooks': []}
-    post.append(matcher)
-hook_list = matcher.setdefault('hooks', [])
-hook_cmd = 'bash $HOOK_PATH'
-if not any('claude-hook-analyze' in h.get('command','') for h in hook_list):
-    hook_list.append({'type': 'command', 'command': 'bash $HOOK_PATH'})
-with open('$SETTINGS_FILE', 'w') as f: json.dump(cfg, f, indent=2)
-" 2>/dev/null && echo "  ✅ Code analyzer hook registered" \
-        || echo "  ⚠️  Auto-registration failed — add manually"
-      else
-        echo "  ⚠️  Can't auto-register (python3 not found). Add manually to settings.json:"
-        echo "    {\"type\": \"command\", \"command\": \"bash $HOOK_PATH\"}"
-      fi
+    if [ -n "$HOOK_PATH" ] && command -v python3 >/dev/null 2>&1; then
+      echo "  [ADD] Registering code analyzer hook..."
+      python3 << PYEOF
+import json
+try:
+    with open('$SETTINGS_FILE', 'r') as f:
+        cfg = json.load(f)
+    hooks = cfg.setdefault('hooks', {})
+    post = hooks.setdefault('PostToolUse', [])
+    matcher = next((e for e in post if e.get('matcher') == 'Write|Edit'), None)
+    if not matcher:
+        matcher = {'matcher': 'Write|Edit', 'hooks': []}
+        post.append(matcher)
+    hook_list = matcher.setdefault('hooks', [])
+    if not any('claude-hook-analyze' in h.get('command', '') for h in hook_list):
+        hook_list.append({'type': 'command', 'command': 'bash $HOOK_PATH'})
+    with open('$SETTINGS_FILE', 'w') as f:
+        json.dump(cfg, f, indent=2)
+    print('  [OK] Hook registered')
+except Exception as e:
+    print(f'  [WARN] Hook registration failed: {e}')
+PYEOF
+    elif [ -n "$HOOK_PATH" ]; then
+      echo "  [WARN] python3 not found. Add hook manually to settings.json:"
+      echo "    bash $HOOK_PATH"
     else
-      echo "  ⚠️  Hook script not found — run bootstrap.sh first to install scripts"
+      echo "  [WARN] claude-hook-analyze.sh not found"
     fi
   fi
 else
-  echo "  ⚠️  ~/.claude/settings.json not found"
+  echo "  [WARN] ~/.claude/settings.json not found"
 fi
 
 # ─── 10. Skills & plugins ────────────────────────────────
@@ -409,42 +431,49 @@ PLUGINS_DIR="$HOME/.claude/plugins/marketplaces"
 mkdir -p "$SKILLS_DIR" "$PLUGINS_DIR"
 
 if [ -d "$SKILLS_DIR/.git" ]; then
-  echo "  ✅ skills (pulling latest)"
-  git -C "$SKILLS_DIR" pull --ff-only 2>/dev/null || echo "    ⚠️  Pull skipped"
+  echo "  [OK] skills (pulling latest)"
+  git -C "$SKILLS_DIR" pull --ff-only 2>/dev/null || echo "    [WARN] Pull skipped"
 elif [ -d "$SKILLS_DIR/gstack" ]; then
-  echo "  ✅ gstack (already present)"
+  echo "  [OK] gstack (already present)"
 else
-  echo "  📥 Installing skills (gstack + all org skills)..."
+  echo "  [INSTALL] skills..."
   TEMP_SKILLS=$(mktemp -d)
-  git clone https://github.com/Wakewell-Sleep-Solutions/claude-skills-ecosystem.git "$TEMP_SKILLS" 2>/dev/null
-  if [ $? -eq 0 ]; then
-    rm -rf "$SKILLS_DIR/.git" 2>/dev/null
-    cp -r "$TEMP_SKILLS/." "$SKILLS_DIR/"
-    echo "  ✅ skills installed"
+  TEMP_FILES+=("$TEMP_SKILLS")
+  # Use gh for private repos (authenticated), fall back to git
+  if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+    gh repo clone Wakewell-Sleep-Solutions/claude-skills-ecosystem "$TEMP_SKILLS" 2>/dev/null
   else
-    echo "  ⚠️  Skills clone failed — need GitHub access"
+    git clone https://github.com/Wakewell-Sleep-Solutions/claude-skills-ecosystem.git "$TEMP_SKILLS" 2>/dev/null
+  fi
+  if [ -d "$TEMP_SKILLS/.git" ]; then
+    # Copy contents but NOT .git dir (don't make skills dir a separate repo)
+    rsync -a --exclude='.git' "$TEMP_SKILLS/" "$SKILLS_DIR/" 2>/dev/null \
+      || cp -r "$TEMP_SKILLS"/* "$SKILLS_DIR/" 2>/dev/null
+    echo "  [OK] skills installed"
+  else
+    echo "  [WARN] Skills clone failed -- need GitHub access"
   fi
   rm -rf "$TEMP_SKILLS"
 fi
 
 if [ -d "$PLUGINS_DIR/thedotmack" ]; then
-  echo "  ✅ claude-mem (pulling latest)"
+  echo "  [OK] claude-mem (pulling)"
   git -C "$PLUGINS_DIR/thedotmack" pull --ff-only 2>/dev/null || true
 else
-  echo "  📥 Installing claude-mem..."
+  echo "  [INSTALL] claude-mem..."
   git clone https://github.com/thedotmack/claude-mem.git "$PLUGINS_DIR/thedotmack" 2>/dev/null \
-    && echo "  ✅ claude-mem installed" \
-    || echo "  ⚠️  claude-mem clone failed"
+    && echo "  [OK] claude-mem installed" \
+    || echo "  [WARN] claude-mem clone failed"
 fi
 
 if [ -d "$PLUGINS_DIR/claude-plugins-official" ]; then
-  echo "  ✅ ralph-loop (pulling latest)"
+  echo "  [OK] ralph-loop (pulling)"
   git -C "$PLUGINS_DIR/claude-plugins-official" pull --ff-only 2>/dev/null || true
 else
-  echo "  📥 Installing ralph-loop..."
+  echo "  [INSTALL] ralph-loop..."
   git clone https://github.com/claude-plugins-official/ralph-loop.git "$PLUGINS_DIR/claude-plugins-official" 2>/dev/null \
-    && echo "  ✅ ralph-loop installed" \
-    || echo "  ⚠️  ralph-loop clone failed"
+    && echo "  [OK] ralph-loop installed" \
+    || echo "  [WARN] ralph-loop clone failed"
 fi
 
 # ─── 11. Clean stale worktrees ────────────────────────────
@@ -455,26 +484,26 @@ done
 # ─── Done ─────────────────────────────────────────────────
 echo ""
 echo "========================================="
-echo "  ✅ Setup Complete! ($OS)"
+echo "  Setup Complete! ($OS)"
 echo "========================================="
 echo ""
 echo "Your projects:"
-echo "  aria (org hub)      → cd ~/Documents/Claude && claude"
-echo "  rcm (data server)   → cd ~/Documents/super-rcm && claude"
-echo "  dashboard (5D)      → cd ~/Documents/5dsmiles-landing && claude"
-echo "  wakewellweb (Azure) → cd ~/Documents/WakewellWeb && claude"
-echo "  claims bridge       → cd ~/Documents/ClaimMDGHL-Sync-Machine && claude"
-echo "  b2b dashboard       → cd ~/Documents/wakewell-b2b-dashboard && claude"
-echo "  sleep scheduler     → cd ~/Documents/sleep_test_scheduler && claude"
-echo "  pegasus             → cd ~/Documents/Pegasus && claude"
-echo "  skills              → cd ~/Documents/claude-skills-ecosystem && claude"
+echo "  aria (org hub)      -> cd ~/Documents/Claude && claude"
+echo "  rcm (data server)   -> cd ~/Documents/super-rcm && claude"
+echo "  dashboard (5D)      -> cd ~/Documents/5dsmiles-landing && claude"
+echo "  wakewellweb (Azure) -> cd ~/Documents/WakewellWeb && claude"
+echo "  claims bridge       -> cd ~/Documents/ClaimMDGHL-Sync-Machine && claude"
+echo "  b2b dashboard       -> cd ~/Documents/wakewell-b2b-dashboard && claude"
+echo "  sleep scheduler     -> cd ~/Documents/sleep_test_scheduler && claude"
+echo "  pegasus             -> cd ~/Documents/Pegasus && claude"
+echo "  skills              -> cd ~/Documents/claude-skills-ecosystem && claude"
 echo ""
 echo "Code analysis:"
-echo "  Full scan:  irun bash ~/Documents/scripts/code-analyzer.sh --all <project>"
-echo "  Security:   bash ~/Documents/scripts/code-analyzer.sh --tier 2 <project>"
-echo "  Deep (SC):  irun bash ~/Documents/scripts/code-analyzer.sh --tier 3 <project>"
+echo "  Full scan:  irun bash ~/Documents/claude-skills-ecosystem/scripts/code-analyzer.sh --all <project>"
+echo "  Security:   bash ~/Documents/claude-skills-ecosystem/scripts/code-analyzer.sh --tier 2 <project>"
 echo ""
-echo "MCP servers (6): ruflo, context7, vanta, obsidian, claude-flow, kapture"
+echo "MCP servers (8): ruflo, context7, vanta, obsidian, claude-flow, kapture, stitch, aceternity"
 echo ""
+echo "Log saved: $LOG_FILE"
 echo "Start:     cd ~/Documents/Claude && claude"
 echo ""
