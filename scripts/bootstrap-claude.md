@@ -57,7 +57,7 @@ Note: GitHub MCP is not required — the `gh` CLI covers PRs, issues, and API ca
 # Run only the ones that are missing:
 claude mcp add context7 -s user -- npx -y @upstash/context7-mcp@latest 2>/dev/null || true
 claude mcp add obsidian -s user -- npx -y @bitbonsai/mcpvault@latest ~/Documents/company-brain 2>/dev/null || true
-claude mcp add vanta -s user -- bash ~/Documents/claude-skills-ecosystem/scripts/vanta-mcp-wrapper.sh 2>/dev/null || true
+claude mcp add vanta -s user -e MSYS_NO_PATHCONV=1 -- bash ~/Documents/claude-skills-ecosystem/scripts/vanta-mcp-wrapper.sh 2>/dev/null || true
 claude mcp add ruflo -s user -- ruflo mcp start 2>/dev/null || true
 claude mcp add kapture -s user -- npx -y kapture-mcp@latest bridge 2>/dev/null || true
 claude mcp add stitch -s user -- npx -y stitch-mcp 2>/dev/null || true
