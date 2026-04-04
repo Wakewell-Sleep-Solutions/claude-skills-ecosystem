@@ -34,14 +34,19 @@ Continue to Step 2.
 claude mcp list 2>/dev/null
 ```
 
-**All 8 MCP servers are required (STOP if any missing — can't be added mid-session):**
+**Required MCP servers (STOP if any missing — can't be added mid-session):**
 
 | Server | Command | Purpose |
 |--------|---------|---------|
 | **context7** | `npx -y @upstash/context7-mcp@latest` | Up-to-date library/framework docs |
 | **obsidian** | `npx -y @bitbonsai/mcpvault@latest ~/Documents/company-brain` | Company brain vault |
-| **vanta** | `bash ~/Documents/scripts/vanta-mcp-wrapper.sh` | SOC 2 / HIPAA compliance |
+| **vanta** | `bash ~/Documents/claude-skills-ecosystem/scripts/vanta-mcp-wrapper.sh` | SOC 2 / HIPAA compliance |
 | **ruflo** | `ruflo mcp start` | Workflow automation |
+
+**Recommended MCP servers (warn but continue — install when needed):**
+
+| Server | Command | Purpose |
+|--------|---------|---------|
 | **claude-flow** | `npx -y @claude-flow/cli@latest mcp start` | Multi-agent swarm orchestration |
 | **kapture** | `npx -y kapture-mcp@latest bridge` | Browser automation |
 | **stitch** | `npx -y stitch-mcp` | Google Stitch AI design canvas → code |
@@ -49,13 +54,12 @@ claude mcp list 2>/dev/null
 
 Note: GitHub MCP is not required — the `gh` CLI covers PRs, issues, and API calls natively.
 
-If ANY are MISSING or FAILED, tell the user which ones and provide the add commands:
+If any **required** server is MISSING or FAILED, STOP and provide the add commands.
+If only **recommended** servers are missing, warn and continue.
 ```bash
 claude mcp add context7 -- npx -y @upstash/context7-mcp@latest
 claude mcp add obsidian -- npx -y @bitbonsai/mcpvault@latest ~/Documents/company-brain
-# Vanta: use whichever path has the wrapper
-claude mcp add vanta -s user -- bash ~/Documents/scripts/vanta-mcp-wrapper.sh
-# OR if scripts/ doesn't exist: bash ~/Documents/claude-skills-ecosystem/scripts/vanta-mcp-wrapper.sh
+claude mcp add vanta -s user -- bash ~/Documents/claude-skills-ecosystem/scripts/vanta-mcp-wrapper.sh
 claude mcp add ruflo -s user -- ruflo mcp start
 claude mcp add claude-flow -- npx -y @claude-flow/cli@latest mcp start
 claude mcp add kapture -- npx -y kapture-mcp@latest bridge
@@ -144,7 +148,7 @@ echo "hook-active:$(grep -q 'claude-hook-analyze' ~/.claude/settings.json 2>/dev
 echo "semgrep:$(semgrep --version 2>/dev/null || echo MISSING)"
 echo "snyk:$(snyk --version 2>/dev/null || echo MISSING)"
 echo "eslint:$(npx eslint --version 2>/dev/null || eslint --version 2>/dev/null || echo MISSING)"
-echo "tsc:$(command -v tsc >/dev/null 2>&1 && echo OK || echo "OK (project-scoped via npx)")"
+echo "tsc:$(command -v tsc >/dev/null 2>&1 && echo OK || (npx tsc --version >/dev/null 2>&1 && echo "OK (npx)" || echo MISSING))"
 echo "sonar:$(command -v sonar-scanner >/dev/null 2>&1 && echo OK || echo MISSING)"
 ```
 
@@ -157,8 +161,13 @@ echo "sonar:$(command -v sonar-scanner >/dev/null 2>&1 && echo OK || echo MISSIN
 | SonarCloud (org: `everestsleep`) | `irun code-analyzer.sh --tier 3` | Code smells, complexity, duplication |
 | Vanta MCP | Always connected | SOC 2 / HIPAA compliance controls |
 
-If hook-active is MISSING: warn user that the analyzer won't fire automatically.
-If any tool is MISSING: `brew install semgrep sonar-scanner && npm install -g snyk eslint typescript`
+If hook-active is MISSING: warn user and provide fix:
+> "The code analyzer hook is not registered. Run `bash ~/Documents/claude-skills-ecosystem/scripts/bootstrap.sh` — it auto-registers the hook. Or add manually to `~/.claude/settings.json` under `hooks.PostToolUse`:"
+> ```json
+> {"matcher": "Write|Edit", "hooks": [{"type": "command", "command": "bash ~/Documents/claude-skills-ecosystem/scripts/claude-hook-analyze.sh"}]}
+> ```
+
+If any tool is MISSING: `brew install semgrep sonar-scanner && npm install -g snyk eslint typescript` (macOS) or see `bootstrap.sh` for Windows equivalents.
 
 ## Step 7: Read org context from Company Brain
 
@@ -226,7 +235,7 @@ If not obvious from the working directory, show the project picker:
 Read the selected project's CLAUDE.md. Start working.
 
 **Quick reference:**
-- Full scan: `irun bash ~/Documents/scripts/code-analyzer.sh --all <project>`
-- Security only: `bash ~/Documents/scripts/code-analyzer.sh --tier 2 <project>`
+- Full scan: `irun bash ~/Documents/claude-skills-ecosystem/scripts/code-analyzer.sh --all <project>`
+- Security only: `bash ~/Documents/claude-skills-ecosystem/scripts/code-analyzer.sh --tier 2 <project>`
 - Cloud: Azure exclusively (`az` CLI). Never AWS/GCP.
 - Secrets: Infisical (local dev) + Azure Key Vault (production). Never `.env` files.
