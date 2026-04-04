@@ -173,8 +173,12 @@ mkdir -p "$SCRIPTS_DIR"
 for script in code-analyzer.sh claude-hook-analyze.sh vanta-mcp-wrapper.sh; do
   if [ -x "$SCRIPTS_DIR/$script" ]; then
     echo "  ✅ $script"
+  elif [ -f "$SKILLS_REPO/scripts/$script" ]; then
+    cp "$SKILLS_REPO/scripts/$script" "$SCRIPTS_DIR/$script"
+    chmod +x "$SCRIPTS_DIR/$script"
+    echo "  ✅ $script (installed from skills repo)"
   else
-    echo "  ⚠️  $script missing in ~/Documents/scripts/"
+    echo "  ⚠️  $script missing — not in ~/Documents/scripts/ or skills repo"
   fi
 done
 
@@ -224,9 +228,8 @@ if command -v infisical >/dev/null 2>&1; then
     echo "  (Opens browser for SSO login — select Infisical Cloud US)"
   fi
 
-  SECRET_COUNT=$(infisical secrets --env=prod --path=/shared --silent 2>/dev/null | grep -c "│" || echo "0")
-  if [ "$SECRET_COUNT" -gt 0 ]; then
-    echo "  ✅ Infisical: $SECRET_COUNT secrets accessible in /shared"
+  if infisical secrets --env=prod --path=/shared --silent >/dev/null 2>&1; then
+    echo "  ✅ Infisical: secrets accessible in /shared"
   else
     echo "  ⚠️  Infisical: can't read /shared secrets — check auth or ask admin"
   fi
