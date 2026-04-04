@@ -73,6 +73,8 @@ After running the add commands, tell the user: "I've registered the missing MCP 
 ```bash
 [ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
 [[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+# Git Bash on Windows mangles /paths — must disable MSYS path conversion for infisical
+export MSYS_NO_PATHCONV=1
 # Infisical — exit-code based
 infisical secrets --env=prod --path=/shared --silent >/dev/null 2>&1 && echo "infisical:OK" || echo "infisical:NOT_AUTHED"
 # Azure — verify logged in, not just installed
