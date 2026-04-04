@@ -173,12 +173,16 @@ mkdir -p "$SCRIPTS_DIR"
 for script in code-analyzer.sh claude-hook-analyze.sh vanta-mcp-wrapper.sh; do
   if [ -x "$SCRIPTS_DIR/$script" ]; then
     echo "  ✅ $script"
-  elif [ -f "$SKILLS_REPO/scripts/$script" ]; then
-    cp "$SKILLS_REPO/scripts/$script" "$SCRIPTS_DIR/$script"
-    chmod +x "$SCRIPTS_DIR/$script"
-    echo "  ✅ $script (installed from skills repo)"
   else
-    echo "  ⚠️  $script missing — not in ~/Documents/scripts/ or skills repo"
+    # Search for it anywhere under ~/Documents
+    FOUND=$(find "$PROJECTS" -maxdepth 3 -name "$script" -type f 2>/dev/null | head -1)
+    if [ -n "$FOUND" ]; then
+      cp "$FOUND" "$SCRIPTS_DIR/$script"
+      chmod +x "$SCRIPTS_DIR/$script"
+      echo "  ✅ $script (copied from $(dirname "$FOUND"))"
+    else
+      echo "  ⚠️  $script not found anywhere under ~/Documents/"
+    fi
   fi
 done
 
@@ -320,7 +324,16 @@ if command -v claude >/dev/null 2>&1; then
     || { echo "  📥 Adding context7 MCP..."; claude mcp add context7 -s user -- npx -y @upstash/context7-mcp@latest 2>/dev/null || true; }
 
   echo "$MCP_LIST" | grep -q "vanta" && echo "  ✅ vanta MCP" \
-    || { echo "  📥 Adding vanta MCP..."; claude mcp add vanta -s user -- bash "$PROJECTS/scripts/vanta-mcp-wrapper.sh" 2>/dev/null || true; }
+    || {
+      # Search for vanta wrapper script
+      VANTA_WRAPPER=$(find "$PROJECTS" -maxdepth 3 -name "vanta-mcp-wrapper.sh" -type f 2>/dev/null | head -1)
+      if [ -n "$VANTA_WRAPPER" ]; then
+        echo "  📥 Adding vanta MCP (found: $VANTA_WRAPPER)..."
+        claude mcp add vanta -s user -- bash "$VANTA_WRAPPER" 2>/dev/null || true
+      else
+        echo "  ⚠️  vanta-mcp-wrapper.sh not found — Vanta MCP not added"
+      fi
+    }
 
   echo "$MCP_LIST" | grep -q "obsidian" && echo "  ✅ obsidian MCP" \
     || { echo "  📥 Adding obsidian MCP..."; claude mcp add obsidian -s user -- npx -y @bitbonsai/mcpvault@latest "$PROJECTS/company-brain" 2>/dev/null || true; }
@@ -348,10 +361,40 @@ if [ -f "$SETTINGS_FILE" ]; then
   if grep -q "claude-hook-analyze" "$SETTINGS_FILE" 2>/dev/null; then
     echo "  ✅ Code analyzer hook active in settings.json"
   else
-    echo "  ⚠️  Code analyzer hook NOT in settings.json"
-    echo "  The closed-loop scanner won't fire on edits."
-    echo "  Add to PostToolUse hooks in ~/.claude/settings.json:"
-    echo '    {"type": "command", "command": "bash $HOME/Documents/scripts/claude-hook-analyze.sh"}'
+    echo "  📥 Registering code analyzer hook in settings.json..."
+    # Search for the hook script anywhere under ~/Documents
+    HOOK_PATH=$(find "$PROJECTS" -maxdepth 3 -name "claude-hook-analyze.sh" -type f 2>/dev/null | head -1)
+    if [ -n "$HOOK_PATH" ]; then
+      # Use python/node to safely merge into JSON (jq may not be installed)
+      if command -v python3 >/dev/null 2>&1; then
+        python3 -c "
+import json, sys
+with open('$SETTINGS_FILE', 'r') as f: cfg = json.load(f)
+hooks = cfg.setdefault('hooks', {})
+post = hooks.setdefault('PostToolUse', [])
+# Find or create the Write|Edit matcher
+matcher = None
+for entry in post:
+    if entry.get('matcher') == 'Write|Edit':
+        matcher = entry
+        break
+if not matcher:
+    matcher = {'matcher': 'Write|Edit', 'hooks': []}
+    post.append(matcher)
+hook_list = matcher.setdefault('hooks', [])
+hook_cmd = 'bash $HOOK_PATH'
+if not any('claude-hook-analyze' in h.get('command','') for h in hook_list):
+    hook_list.append({'type': 'command', 'command': 'bash $HOOK_PATH'})
+with open('$SETTINGS_FILE', 'w') as f: json.dump(cfg, f, indent=2)
+" 2>/dev/null && echo "  ✅ Code analyzer hook registered" \
+        || echo "  ⚠️  Auto-registration failed — add manually"
+      else
+        echo "  ⚠️  Can't auto-register (python3 not found). Add manually to settings.json:"
+        echo "    {\"type\": \"command\", \"command\": \"bash $HOOK_PATH\"}"
+      fi
+    else
+      echo "  ⚠️  Hook script not found — run bootstrap.sh first to install scripts"
+    fi
   fi
 else
   echo "  ⚠️  ~/.claude/settings.json not found"

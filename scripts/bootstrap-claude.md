@@ -53,7 +53,9 @@ If ANY are MISSING or FAILED, tell the user which ones and provide the add comma
 ```bash
 claude mcp add context7 -- npx -y @upstash/context7-mcp@latest
 claude mcp add obsidian -- npx -y @bitbonsai/mcpvault@latest ~/Documents/company-brain
+# Vanta: use whichever path has the wrapper
 claude mcp add vanta -s user -- bash ~/Documents/scripts/vanta-mcp-wrapper.sh
+# OR if scripts/ doesn't exist: bash ~/Documents/claude-skills-ecosystem/scripts/vanta-mcp-wrapper.sh
 claude mcp add ruflo -s user -- ruflo mcp start
 claude mcp add claude-flow -- npx -y @claude-flow/cli@latest mcp start
 claude mcp add kapture -- npx -y kapture-mcp@latest bridge
@@ -133,13 +135,16 @@ The closed-loop code analysis system runs automatically via PostToolUse hooks. V
 ```bash
 [ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
 [[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-echo "analyzer:$([ -x ~/Documents/scripts/code-analyzer.sh ] && echo OK || echo MISSING)"
-echo "hook:$([ -x ~/Documents/scripts/claude-hook-analyze.sh ] && echo OK || echo MISSING)"
+# Scripts can be at ~/Documents/scripts/ OR ~/Documents/claude-skills-ecosystem/scripts/
+SCRIPTS="$HOME/Documents/scripts"
+SKILLS_SCRIPTS="$HOME/Documents/claude-skills-ecosystem/scripts"
+echo "analyzer:$([ -x $SCRIPTS/code-analyzer.sh ] || [ -x $SKILLS_SCRIPTS/code-analyzer.sh ] && echo OK || echo MISSING)"
+echo "hook:$([ -x $SCRIPTS/claude-hook-analyze.sh ] || [ -x $SKILLS_SCRIPTS/claude-hook-analyze.sh ] && echo OK || echo MISSING)"
 echo "hook-active:$(grep -q 'claude-hook-analyze' ~/.claude/settings.json 2>/dev/null && echo OK || echo MISSING)"
 echo "semgrep:$(semgrep --version 2>/dev/null || echo MISSING)"
 echo "snyk:$(snyk --version 2>/dev/null || echo MISSING)"
 echo "eslint:$(npx eslint --version 2>/dev/null || eslint --version 2>/dev/null || echo MISSING)"
-echo "tsc:$(if [ -f ./tsconfig.json ] || [ -f ./package.json ]; then npx tsc --version 2>/dev/null || echo "project-scoped"; else echo "project-scoped (check inside a TS project)"; fi)"
+echo "tsc:$(command -v tsc >/dev/null 2>&1 && echo OK || echo "OK (project-scoped via npx)")"
 echo "sonar:$(command -v sonar-scanner >/dev/null 2>&1 && echo OK || echo MISSING)"
 ```
 
