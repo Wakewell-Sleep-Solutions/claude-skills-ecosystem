@@ -252,9 +252,9 @@ if command -v infisical >/dev/null 2>&1; then
   fi
 
   if infisical secrets --env=prod --path=/shared --silent >/dev/null 2>&1; then
-    echo "  [OK] Infisical: secrets accessible in /shared"
+    echo "  ✅ Infisical: secrets accessible in /shared"
   else
-    echo "  [WARN] Infisical: can't read /shared secrets"
+    echo "  ⚠️  Infisical: can't read /shared secrets — check auth or ask admin"
   fi
 fi
 
@@ -268,6 +268,7 @@ if ! command -v gh >/dev/null 2>&1 || ! gh auth status >/dev/null 2>&1; then
   echo "  [SKIP] GitHub not available/authed — skipping repo sync"
 else
   REPO_MAP=$(mktemp)
+  trap 'rm -f "$REPO_MAP"' EXIT
   TEMP_FILES+=("$REPO_MAP")
 
   find "$PROJECTS" -maxdepth 2 -name ".git" -type d 2>/dev/null | while read -r gitdir; do
@@ -343,7 +344,7 @@ fi
 # ─── 9. MCP servers ───────────────────────────────────────
 if command -v claude >/dev/null 2>&1; then
   echo ""
-  echo "Setting up MCP servers (8 total)..."
+  echo "Setting up MCP servers (7 total)..."
   MCP_LIST=$(claude mcp list 2>/dev/null || echo "")
 
   echo "$MCP_LIST" | grep -q "ruflo" && echo "  [OK] ruflo MCP" \
@@ -352,23 +353,20 @@ if command -v claude >/dev/null 2>&1; then
   echo "$MCP_LIST" | grep -q "context7" && echo "  [OK] context7 MCP" \
     || { echo "  [ADD] context7 MCP..."; claude mcp add context7 -s user -- npx -y @upstash/context7-mcp@latest 2>/dev/null || true; }
 
-  # Vanta — search for wrapper script
+  # Vanta MCP
   echo "$MCP_LIST" | grep -q "vanta" && echo "  [OK] vanta MCP" \
     || {
-      VANTA_WRAPPER=$(find "$PROJECTS" -maxdepth 3 -name "vanta-mcp-wrapper.sh" -type f 2>/dev/null | head -1)
-      if [ -n "$VANTA_WRAPPER" ]; then
-        echo "  [ADD] vanta MCP (found: $VANTA_WRAPPER)..."
+      VANTA_WRAPPER="$PROJECTS/claude-skills-ecosystem/scripts/vanta-mcp-wrapper.sh"
+      if [ -f "$VANTA_WRAPPER" ]; then
+        echo "  [ADD] vanta MCP..."
         claude mcp add vanta -s user -- bash "$VANTA_WRAPPER" 2>/dev/null || true
       else
-        echo "  [WARN] vanta-mcp-wrapper.sh not found"
+        echo "  [WARN] vanta-mcp-wrapper.sh not found at $VANTA_WRAPPER"
       fi
     }
 
   echo "$MCP_LIST" | grep -q "obsidian" && echo "  [OK] obsidian MCP" \
     || { echo "  [ADD] obsidian MCP..."; claude mcp add obsidian -s user -- npx -y @bitbonsai/mcpvault@latest "$PROJECTS/company-brain" 2>/dev/null || true; }
-
-  echo "$MCP_LIST" | grep -q "claude-flow" && echo "  [OK] claude-flow MCP" \
-    || { echo "  [ADD] claude-flow MCP..."; claude mcp add claude-flow -s user -- npx -y @claude-flow/cli@latest mcp start 2>/dev/null || true; }
 
   echo "$MCP_LIST" | grep -q "kapture" && echo "  [OK] kapture MCP" \
     || { echo "  [ADD] kapture MCP..."; claude mcp add kapture -s user -- npx -y kapture-mcp@latest bridge 2>/dev/null || true; }
@@ -439,12 +437,7 @@ else
   echo "  [INSTALL] skills..."
   TEMP_SKILLS=$(mktemp -d)
   TEMP_FILES+=("$TEMP_SKILLS")
-  # Use gh for private repos (authenticated), fall back to git
-  if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-    gh repo clone Wakewell-Sleep-Solutions/claude-skills-ecosystem "$TEMP_SKILLS" 2>/dev/null
-  else
-    git clone https://github.com/Wakewell-Sleep-Solutions/claude-skills-ecosystem.git "$TEMP_SKILLS" 2>/dev/null
-  fi
+  gh repo clone Wakewell-Sleep-Solutions/claude-skills-ecosystem "$TEMP_SKILLS" 2>/dev/null
   if [ -d "$TEMP_SKILLS/.git" ]; then
     # Copy contents but NOT .git dir (don't make skills dir a separate repo)
     rsync -a --exclude='.git' "$TEMP_SKILLS/" "$SKILLS_DIR/" 2>/dev/null \
@@ -502,7 +495,7 @@ echo "Code analysis:"
 echo "  Full scan:  irun bash ~/Documents/claude-skills-ecosystem/scripts/code-analyzer.sh --all <project>"
 echo "  Security:   bash ~/Documents/claude-skills-ecosystem/scripts/code-analyzer.sh --tier 2 <project>"
 echo ""
-echo "MCP servers (8): ruflo, context7, vanta, obsidian, claude-flow, kapture, stitch, aceternity"
+echo "MCP servers (7): ruflo, context7, vanta, obsidian, kapture, stitch, aceternity"
 echo ""
 echo "Log saved: $LOG_FILE"
 echo "Start:     cd ~/Documents/Claude && claude"

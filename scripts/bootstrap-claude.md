@@ -32,7 +32,7 @@ Continue to Step 2.
 
 Check which MCP tools are available by looking at your own tool list for `mcp__<server>__` prefixes.
 
-**All 8 MCP servers are required:**
+**All 7 MCP servers are required:**
 
 | Server | Tool prefix to check | Purpose |
 |--------|---------------------|---------|
@@ -40,7 +40,6 @@ Check which MCP tools are available by looking at your own tool list for `mcp__<
 | **obsidian** | `mcp__obsidian__` | Company brain vault |
 | **vanta** | `mcp__vanta__` | SOC 2 / HIPAA compliance |
 | **ruflo** | `mcp__ruflo__` | Workflow automation |
-| **claude-flow** | `mcp__claude-flow__` | Multi-agent swarm orchestration |
 | **kapture** | `mcp__kapture__` or `mcp__Kapture__` | Browser automation |
 | **stitch** | `mcp__stitch__` | Google Stitch AI design → code |
 | **aceternity** | `mcp__aceternity__` | 200+ animated React/Tailwind components |
@@ -57,7 +56,6 @@ claude mcp add context7 -s user -- npx -y @upstash/context7-mcp@latest 2>/dev/nu
 claude mcp add obsidian -s user -- npx -y @bitbonsai/mcpvault@latest ~/Documents/company-brain 2>/dev/null || true
 claude mcp add vanta -s user -- bash ~/Documents/claude-skills-ecosystem/scripts/vanta-mcp-wrapper.sh 2>/dev/null || true
 claude mcp add ruflo -s user -- ruflo mcp start 2>/dev/null || true
-claude mcp add claude-flow -s user -- npx -y @claude-flow/cli@latest mcp start 2>/dev/null || true
 claude mcp add kapture -s user -- npx -y kapture-mcp@latest bridge 2>/dev/null || true
 claude mcp add stitch -s user -- npx -y stitch-mcp 2>/dev/null || true
 claude mcp add aceternity -s user -- npx -y aceternityui-mcp 2>/dev/null || true
@@ -140,7 +138,7 @@ The closed-loop code analysis system runs automatically via PostToolUse hooks. V
 SCRIPTS="$HOME/Documents/claude-skills-ecosystem/scripts"
 echo "analyzer:$([ -f $SCRIPTS/code-analyzer.sh ] && echo OK || echo MISSING)"
 echo "hook:$([ -f $SCRIPTS/claude-hook-analyze.sh ] && echo OK || echo MISSING)"
-echo "hook-active:$(grep -q 'claude-hook-analyze\|codex-audit' ~/.claude/settings.json 2>/dev/null && echo OK || echo MISSING)"
+echo "hook-active:$(grep -q 'claude-hook-analyze\|codex-audit\|claude-skills-ecosystem' ~/.claude/settings.json 2>/dev/null && echo OK || echo MISSING)"
 echo "semgrep:$(semgrep --version 2>/dev/null || echo MISSING)"
 echo "snyk:$(snyk --version 2>/dev/null || echo MISSING)"
 echo "eslint:$(npx eslint --version 2>/dev/null || eslint --version 2>/dev/null || echo MISSING)"
@@ -164,8 +162,8 @@ If hook-active is MISSING: warn user and provide fix:
 > ```
 
 If any tool is MISSING:
-- macOS: `brew install semgrep sonar-scanner && npm install -g snyk eslint typescript`
-- Windows: `pip install semgrep && npm install -g snyk eslint typescript` (sonar-scanner: download from sonarsource.com)
+- **macOS:** `brew install semgrep sonar-scanner && npm install -g snyk eslint typescript`
+- **Windows:** `pip install semgrep && npm install -g snyk eslint typescript` (sonar-scanner: download from sonarsource.com)
 
 ## Step 7: Read org context from Company Brain
 

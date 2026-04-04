@@ -7,7 +7,8 @@
 # Output: findings printed to stderr (shown to Claude), exit 0 always
 
 set -uo pipefail
-export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+[[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+[[ -d "$LOCALAPPDATA/Programs/Python" ]] && export PATH="$(ls -d "$LOCALAPPDATA"/Programs/Python/Python*/Scripts 2>/dev/null | head -1):$PATH" 2>/dev/null
 
 # Read hook context from stdin
 HOOK_INPUT=$(cat)
