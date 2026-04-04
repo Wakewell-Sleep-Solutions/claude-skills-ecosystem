@@ -49,6 +49,8 @@ claude mcp list 2>/dev/null
 |--------|---------|---------|
 | **claude-flow** | `npx -y @claude-flow/cli@latest mcp start` | Multi-agent swarm orchestration |
 | **kapture** | `npx -y kapture-mcp@latest bridge` | Browser automation |
+| **stitch** | `npx -y stitch-mcp` | Google Stitch AI design canvas → code |
+| **aceternity** | `npx -y aceternityui-mcp` | 200+ animated React/Tailwind components |
 
 Note: GitHub MCP is not required — the `gh` CLI covers PRs, issues, and API calls natively.
 
@@ -60,6 +62,8 @@ claude mcp add vanta -s user -- bash ~/Documents/scripts/vanta-mcp-wrapper.sh
 claude mcp add ruflo -s user -- ruflo mcp start
 claude mcp add claude-flow -- npx -y @claude-flow/cli@latest mcp start
 claude mcp add kapture -- npx -y kapture-mcp@latest bridge
+claude mcp add stitch -- npx -y stitch-mcp
+claude mcp add aceternity -- npx -y aceternityui-mcp
 ```
 > "Then restart Claude."
 
@@ -142,7 +146,7 @@ echo "hook-active:$(grep -q 'claude-hook-analyze' ~/.claude/settings.json 2>/dev
 echo "semgrep:$(semgrep --version 2>/dev/null || echo MISSING)"
 echo "snyk:$(snyk --version 2>/dev/null || echo MISSING)"
 echo "eslint:$(npx eslint --version 2>/dev/null || eslint --version 2>/dev/null || echo MISSING)"
-echo "tsc:$(npx tsc --version 2>/dev/null || tsc --version 2>/dev/null || echo MISSING)"
+echo "tsc:$(if [ -f ./tsconfig.json ] || [ -f ./package.json ]; then npx tsc --version 2>/dev/null || echo "project-scoped"; else echo "project-scoped (check inside a TS project)"; fi)"
 echo "sonar:$(command -v sonar-scanner >/dev/null 2>&1 && echo OK || echo MISSING)"
 ```
 
@@ -217,7 +221,7 @@ If not obvious from the working directory, show the project picker:
 | B2B Dashboard | `~/Documents/wakewell-b2b-dashboard/` | Physician outreach, Lemlist, fax |
 | Sleep Scheduler | `~/Documents/sleep_test_scheduler/` | HST booking, Stripe, GHL pipeline |
 | Pegasus | `~/Documents/Pegasus/` | App with lint + test |
-| Skills | `~/Documents/claude-skills-ecosystem/` | 85+ portable Claude Code skills |
+| Skills | `~/Documents/claude-skills-ecosystem/` | 48+ portable Claude Code skills |
 
 ## Step 10: Begin
 

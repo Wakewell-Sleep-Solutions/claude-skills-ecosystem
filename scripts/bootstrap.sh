@@ -310,7 +310,7 @@ fi
 # ─── 9. MCP servers ───────────────────────────────────────
 if command -v claude >/dev/null 2>&1; then
   echo ""
-  echo "Setting up MCP servers (6 total)..."
+  echo "Setting up MCP servers (8 total)..."
   MCP_LIST=$(claude mcp list 2>/dev/null)
 
   echo "$MCP_LIST" | grep -q "ruflo" && echo "  ✅ ruflo MCP" \
@@ -330,6 +330,14 @@ if command -v claude >/dev/null 2>&1; then
 
   echo "$MCP_LIST" | grep -q "kapture" && echo "  ✅ kapture MCP" \
     || { echo "  📥 Adding kapture MCP..."; claude mcp add kapture -s user -- npx -y kapture-mcp@latest bridge 2>/dev/null || true; }
+
+  # Stitch — Google AI design canvas → code pipeline
+  echo "$MCP_LIST" | grep -q "stitch" && echo "  ✅ stitch MCP" \
+    || { echo "  📥 Adding stitch MCP..."; claude mcp add stitch -s user -- npx -y stitch-mcp 2>/dev/null || true; }
+
+  # Aceternity UI — 200+ animated React/Tailwind components
+  echo "$MCP_LIST" | grep -q "aceternity" && echo "  ✅ aceternity MCP" \
+    || { echo "  📥 Adding aceternity MCP..."; claude mcp add aceternity -s user -- npx -y aceternityui-mcp 2>/dev/null || true; }
 fi
 
 # ─── 9b. Verify PostToolUse analyzer hook ─────────────────
