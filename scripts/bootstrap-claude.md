@@ -30,9 +30,9 @@ Continue to Step 2.
 
 ## Step 2: Check MCP servers
 
-Do NOT run `claude mcp list` — it may not be in PATH. Instead, check which MCP tools are available to you by looking at your own tool list. You (the agent) can see what MCP servers are connected by checking if tools with the `mcp__<server>__` prefix exist.
+Check which MCP tools are available by looking at your own tool list for `mcp__<server>__` prefixes.
 
-**All 8 MCP servers are required (STOP if any missing — can't be added mid-session):**
+**All 8 MCP servers are required:**
 
 | Server | Tool prefix to check | Purpose |
 |--------|---------------------|---------|
@@ -47,19 +47,25 @@ Do NOT run `claude mcp list` — it may not be in PATH. Instead, check which MCP
 
 Note: GitHub MCP is not required — the `gh` CLI covers PRs, issues, and API calls natively.
 
-If ANY server is missing, tell the user to run these commands in a separate terminal, then restart Claude:
+**If ANY server is missing, install it now using Bash.** You CAN run `claude mcp add` from inside a session — it writes to config files on disk. The server won't connect until the next session, but the registration is permanent.
+
 ```bash
-claude mcp add context7 -- npx -y @upstash/context7-mcp@latest
-claude mcp add obsidian -- npx -y @bitbonsai/mcpvault@latest ~/Documents/company-brain
-claude mcp add vanta -s user -- bash ~/Documents/claude-skills-ecosystem/scripts/vanta-mcp-wrapper.sh
-claude mcp add ruflo -s user -- ruflo mcp start
-claude mcp add claude-flow -- npx -y @claude-flow/cli@latest mcp start
-claude mcp add kapture -- npx -y kapture-mcp@latest bridge
-claude mcp add stitch -- npx -y stitch-mcp
-claude mcp add aceternity -- npx -y aceternityui-mcp
+[ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
+[[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+# Run only the ones that are missing:
+claude mcp add context7 -s user -- npx -y @upstash/context7-mcp@latest 2>/dev/null || true
+claude mcp add obsidian -s user -- npx -y @bitbonsai/mcpvault@latest ~/Documents/company-brain 2>/dev/null || true
+claude mcp add vanta -s user -- bash ~/Documents/claude-skills-ecosystem/scripts/vanta-mcp-wrapper.sh 2>/dev/null || true
+claude mcp add ruflo -s user -- ruflo mcp start 2>/dev/null || true
+claude mcp add claude-flow -s user -- npx -y @claude-flow/cli@latest mcp start 2>/dev/null || true
+claude mcp add kapture -s user -- npx -y kapture-mcp@latest bridge 2>/dev/null || true
+claude mcp add stitch -s user -- npx -y stitch-mcp 2>/dev/null || true
+claude mcp add aceternity -s user -- npx -y aceternityui-mcp 2>/dev/null || true
 ```
 
-Then STOP — MCP servers can't be added mid-session. All 8 are required.
+After running the add commands, tell the user: "I've registered the missing MCP servers. They'll connect on your next Claude session. Restart Claude to activate them."
+
+**Do NOT stop the bootstrap** — continue with the remaining steps. The MCP servers are registered and will work next session.
 
 ## Step 3: Check auth (Infisical + Azure)
 
