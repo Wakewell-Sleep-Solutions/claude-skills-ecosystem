@@ -23,9 +23,21 @@ echo "OPTIONAL ruflo:$(command -v ruflo >/dev/null 2>&1 && echo OK || echo MISSI
 # Audit tools checked in Step 6 — not here
 ```
 
-**If any REQUIRED tool is MISSING** → STOP. Tell the user:
-> "Core tools missing. Run this in Terminal first, then start a new Claude session:"
-> `bash ~/Documents/claude-skills-ecosystem/scripts/bootstrap.sh`
+**If any REQUIRED tool is MISSING** → try to install it via Bash before stopping:
+```bash
+[ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
+[[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+# Install missing required tools:
+# gh: brew install gh (macOS) or winget install GitHub.cli (Windows)
+# node: brew install node (macOS) or winget install OpenJS.NodeJS.LTS (Windows)
+# infisical:
+#   macOS: brew install infisical/get-cli/infisical
+#   Windows: winget install Infisical.CLI || npm install -g @infisical/cli
+#   Linux: npm install -g @infisical/cli
+```
+
+If install fails or the tool still isn't found after installing, tell the user:
+> "Could not install [tool]. Run `bash ~/Documents/claude-skills-ecosystem/scripts/bootstrap.sh` in Terminal."
 
 **If only OPTIONAL tools are MISSING** → warn and continue.
 
@@ -35,7 +47,7 @@ Continue to Step 2.
 
 Check which MCP tools are available by looking at your own tool list for `mcp__<server>__` prefixes.
 
-**All 7 MCP servers are required:**
+**All 8 MCP servers are required:**
 
 | Server | Tool prefix to check | Purpose |
 |--------|---------------------|---------|
@@ -46,6 +58,7 @@ Check which MCP tools are available by looking at your own tool list for `mcp__<
 | **kapture** | `mcp__kapture__` or `mcp__Kapture__` | Browser automation |
 | **stitch** | `mcp__stitch__` | Google Stitch AI design → code |
 | **aceternity** | `mcp__aceternity__` | 200+ animated React/Tailwind components |
+| **wordpress** | `mcp__wordpress__` | 5dsmiles.com WordPress management |
 
 Note: GitHub MCP is not required — the `gh` CLI covers PRs, issues, and API calls natively.
 
@@ -62,7 +75,37 @@ claude mcp add ruflo -s user -- ruflo mcp start 2>/dev/null || true
 claude mcp add kapture -s user -- npx -y kapture-mcp@latest bridge 2>/dev/null || true
 claude mcp add stitch -s user -- npx -y stitch-mcp 2>/dev/null || true
 claude mcp add aceternity -s user -- npx -y aceternityui-mcp 2>/dev/null || true
+# WordPress MCP — uses npx proxy to bridge STDIO to Streamable HTTP
+# Requires: Node.js, WP plugins already installed on 5dsmiles.com (MCP Adapter + Enable Abilities for MCP)
+# Auth: WordPress Application Password (NOT regular login password)
+# Get creds from Infisical: /shared/wordpress-mcp
+claude mcp add wordpress -s user -- /usr/local/bin/npx -y @automattic/mcp-wordpress-remote@latest 2>/dev/null || true
 ```
+
+**WordPress MCP extra setup (first time on a new machine only):**
+
+The WordPress MCP server needs env vars for auth. These go in `claude_desktop_config.json` (Desktop app) or `~/.claude/settings.json` (CLI). The `claude mcp add` command above registers the server, but you must manually add the `env` block with credentials from Infisical (`/shared/wordpress-mcp`):
+
+```json
+"wordpress": {
+  "command": "/usr/local/bin/npx",
+  "args": ["-y", "@automattic/mcp-wordpress-remote@latest"],
+  "env": {
+    "PATH": "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "WP_API_URL": "https://5dsmiles.com/wp-json/mcp/mcp-adapter-default-server",
+    "WP_API_USERNAME": "<from Infisical /shared/wordpress-mcp>",
+    "WP_API_PASSWORD": "<from Infisical /shared/wordpress-mcp>"
+  }
+}
+```
+
+**Config file location depends on your app:**
+- Claude Desktop app: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Claude Code CLI: `~/.claude/settings.json`
+
+**WP plugins (already installed on 5dsmiles.com — no action needed):**
+- MCP Adapter (from github.com/WordPress/mcp-adapter, manual ZIP install)
+- Enable Abilities for MCP (from WP plugin directory, abilities toggled on at Settings > WP Abilities)
 
 After running the add commands, tell the user: "I've registered the missing MCP servers. They'll connect on your next Claude session. Restart Claude to activate them."
 
@@ -172,6 +215,39 @@ If hook-active is MISSING: warn user and provide fix:
 If any tool is MISSING:
 - **macOS:** `brew install semgrep sonar-scanner && npm install -g snyk eslint typescript`
 - **Windows:** `pip install semgrep && npm install -g snyk eslint typescript` (sonar-scanner: download from sonarsource.com)
+
+## Step 6b: Verify global CLAUDE.md sync
+
+The global CLAUDE.md is git-backed via company-brain. A bidirectional sync runs every 5 min via cron.
+
+```bash
+[[ "$OSTYPE" == "darwin"* ]] && export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+echo "canonical:$([ -f $HOME/Documents/company-brain/claude-config/global-claude.md ] && echo OK || echo MISSING)"
+echo "sync-script:$([ -x $HOME/Documents/company-brain/scripts/sync-global-claude.sh ] && echo OK || echo MISSING)"
+echo "cron-active:$(crontab -l 2>/dev/null | grep -q 'sync-global-claude' && echo OK || echo MISSING)"
+# Check if live and canonical are in sync
+if [ -f "$HOME/Documents/company-brain/claude-config/global-claude.md" ]; then
+  diff -q "$HOME/.claude/CLAUDE.md" "$HOME/Documents/company-brain/claude-config/global-claude.md" >/dev/null 2>&1 && echo "sync-status:IN_SYNC" || echo "sync-status:DIVERGED"
+fi
+```
+
+**If canonical is MISSING:** Seed it from live:
+```bash
+mkdir -p ~/Documents/company-brain/claude-config
+cp ~/.claude/CLAUDE.md ~/Documents/company-brain/claude-config/global-claude.md
+```
+
+**If sync-script is MISSING:** The script should exist at `~/Documents/company-brain/scripts/sync-global-claude.sh`. Pull company-brain: `cd ~/Documents/company-brain && git pull`
+
+**If cron-active is MISSING:** Register it:
+```bash
+(crontab -l 2>/dev/null | grep -v "sync-global-claude"; echo "*/5 * * * * $HOME/Documents/company-brain/scripts/sync-global-claude.sh") | crontab -
+```
+
+**If sync-status is DIVERGED:** Run the sync now to resolve:
+```bash
+bash ~/Documents/company-brain/scripts/sync-global-claude.sh
+```
 
 ## Step 7: Read org context from Company Brain
 

@@ -233,8 +233,29 @@ if ! command -v infisical >/dev/null 2>&1; then
   echo "  [INSTALL] Infisical..."
   if [ "$OS" = "macos" ]; then
     brew install infisical/get-cli/infisical 2>/dev/null || echo "  [WARN] Infisical install failed"
-  else
-    npm install -g @infisical/cli 2>/dev/null || echo "  [WARN] Infisical install failed"
+  elif [ "$OS" = "windows" ]; then
+    # Try winget first (native Windows), then scoop, then npm
+    if command -v winget >/dev/null 2>&1; then
+      echo "  Trying winget..."
+      winget install --accept-package-agreements --accept-source-agreements -e --id Infisical.CLI 2>/dev/null || true
+      hash -r 2>/dev/null
+    fi
+    if ! command -v infisical >/dev/null 2>&1 && command -v scoop >/dev/null 2>&1; then
+      echo "  Trying scoop..."
+      scoop install infisical 2>/dev/null || true
+    fi
+    if ! command -v infisical >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+      echo "  Trying npm..."
+      npm install -g @infisical/cli 2>/dev/null || true
+    fi
+    command -v infisical >/dev/null 2>&1 || echo "  [WARN] Infisical install failed. Try: winget install Infisical.CLI"
+  elif [ "$OS" = "linux" ]; then
+    # npm is the most portable option on Linux
+    if command -v npm >/dev/null 2>&1; then
+      npm install -g @infisical/cli 2>/dev/null || echo "  [WARN] npm install @infisical/cli failed"
+    else
+      echo "  [WARN] npm not found. Install infisical manually: https://infisical.com/docs/cli/overview"
+    fi
   fi
 else
   echo "  [OK] infisical"
