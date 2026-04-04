@@ -111,9 +111,27 @@ fi
 [ -d ~/Documents/claude-skills-ecosystem/.git ] && git -C ~/Documents/claude-skills-ecosystem pull --ff-only 2>/dev/null
 ```
 
-## Step 5: Verify code analysis stack
+## Step 5: Verify skills are installed
 
-The closed-loop code analysis system runs automatically via PostToolUse hooks. Verify it's operational:
+```bash
+echo "skills-dir:$([ -d ~/.claude/skills ] && echo OK || echo MISSING)"
+echo "skill-count:$(ls -d ~/.claude/skills/*/SKILL.md 2>/dev/null | wc -l | tr -d ' ') skills"
+echo "gstack:$([ -d ~/.claude/skills/gstack ] && echo OK || echo MISSING)"
+```
+
+If skills-dir is MISSING or skill-count is 0:
+> "Skills not installed. Run `bash ~/Documents/claude-skills-ecosystem/scripts/bootstrap.sh` — Section 10 installs them."
+
+If only gstack is MISSING but other skills exist: that's fine, gstack is optional.
+
+If skills exist but seem outdated, pull latest:
+```bash
+[ -d ~/.claude/skills/.git ] && git -C ~/.claude/skills pull --ff-only 2>/dev/null
+```
+
+## Step 6: Verify code analysis stack
+
+The closed-loop code analysis system runs automatically via PostToolUse hooks. Verify:
 
 ```bash
 [ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
@@ -140,7 +158,7 @@ echo "sonar:$(command -v sonar-scanner >/dev/null 2>&1 && echo OK || echo MISSIN
 If hook-active is MISSING: warn user that the analyzer won't fire automatically.
 If any tool is MISSING: `brew install semgrep sonar-scanner && npm install -g snyk eslint typescript`
 
-## Step 6: Read org context from Company Brain
+## Step 7: Read org context from Company Brain
 
 The Company Brain vault (`~/Documents/company-brain/`) is the single source of truth for all org context.
 
@@ -165,7 +183,7 @@ The Company Brain vault (`~/Documents/company-brain/`) is the single source of t
    Read any decisions relevant to your current project. These override default patterns.
 6. For HIPAA-sensitive work → also load `company-brain/operations/compliance.md` + `company-brain/systems/data-flows.md`
 
-## Step 7: What changed recently
+## Step 8: What changed recently
 
 ```bash
 # Use 3 days to cover weekends (Fri 5pm → Mon 9am)
@@ -183,7 +201,7 @@ done
 Summarize briefly: "Recently, [repo] had [N] commits: [what changed]."
 No changes? Say nothing.
 
-## Step 8: Project picker
+## Step 9: Project picker
 
 Dr. Qiu is always Expert mode — skip the experience level question. Execute directly, no guardrails.
 
@@ -201,7 +219,7 @@ If not obvious from the working directory, show the project picker:
 | Pegasus | `~/Documents/Pegasus/` | App with lint + test |
 | Skills | `~/Documents/claude-skills-ecosystem/` | 85+ portable Claude Code skills |
 
-## Step 9: Begin
+## Step 10: Begin
 
 Read the selected project's CLAUDE.md. Start working.
 
